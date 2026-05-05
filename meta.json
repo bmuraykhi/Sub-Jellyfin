@@ -1,0 +1,12 @@
+{
+    "category": "General",
+    "changelog": "Initial release.",
+    "description": "Adds a 'Download Subs' button to season detail pages that batch-downloads subtitles for every episode in the season.",
+    "guid": "a3c0e5c3-7d0d-4b91-9d1c-2e6f9b3a1c5d",
+    "name": "Season Subtitle Downloader",
+    "overview": "One-click subtitle download for an entire season. Requires the File Transformation plugin.",
+    "owner": "local",
+    "targetAbi": "10.11.0.0",
+    "timestamp": "2026-05-05T00:00:00Z",
+    "version": "1.0.0.0"
+}

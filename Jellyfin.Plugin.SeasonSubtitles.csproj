@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AssemblyVersion>1.0.0.0</AssemblyVersion>
+        <FileVersion>1.0.0.0</FileVersion>
+        <RootNamespace>Jellyfin.Plugin.SeasonSubtitles</RootNamespace>
+        <AssemblyName>Jellyfin.Plugin.SeasonSubtitles</AssemblyName>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Jellyfin.Controller" Version="10.11.0" />
+        <PackageReference Include="Jellyfin.Model" Version="10.11.0" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    </ItemGroup>
+    <ItemGroup>
+        <None Remove="Web\season-subtitles.js" />
+        <EmbeddedResource Include="Web\season-subtitles.js" />
+    </ItemGroup>
+</Project>

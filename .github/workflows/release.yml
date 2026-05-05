@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build
+        run: dotnet publish Jellyfin.Plugin.SeasonSubtitles.csproj -c Release -o publish
+
+      - name: Stage artifacts
+        run: |
+          mkdir -p artifacts
+          cp publish/Jellyfin.Plugin.SeasonSubtitles.dll artifacts/
+          cp meta.json artifacts/
+          cd artifacts
+          zip season-subtitle-downloader.zip Jellyfin.Plugin.SeasonSubtitles.dll meta.json
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/Jellyfin.Plugin.SeasonSubtitles.dll
+            artifacts/meta.json
+            artifacts/season-subtitle-downloader.zip
+          generate_release_notes: true
+
+      - name: Upload workflow artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin
+          path: artifacts/
