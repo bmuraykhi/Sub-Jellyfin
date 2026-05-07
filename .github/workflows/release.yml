@@ -13,24 +13,93 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          # We need main (not the detached tag) so we can commit manifest.json back.
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
 
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
 
-      - name: Build
-        run: dotnet publish Jellyfin.Plugin.SeasonSubtitles.csproj -c Release -o publish
+      - name: Resolve version from tag
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF##*/}"          # e.g. v1.0.1
+          else
+            TAG="v$(jq -r .version meta.json)"   # workflow_dispatch fallback
+          fi
+          VERSION="${TAG#v}"                  # e.g. 1.0.1
+          echo "tag=$TAG"          >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"  >> "$GITHUB_OUTPUT"
+          echo "Tag: $TAG  Version: $VERSION"
 
-      - name: Stage artifacts
+      - name: Sync meta.json to tag version
+        run: |
+          tmp=$(mktemp)
+          jq --arg v "${{ steps.ver.outputs.version }}" \
+             --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+             '.version = $v | .timestamp = $t' meta.json > "$tmp"
+          mv "$tmp" meta.json
+
+      - name: Build
+        run: |
+          dotnet publish Jellyfin.Plugin.SeasonSubtitles.csproj \
+            -c Release -o publish \
+            -p:Version=${{ steps.ver.outputs.version }} \
+            -p:AssemblyVersion=${{ steps.ver.outputs.version }} \
+            -p:FileVersion=${{ steps.ver.outputs.version }}
+
+      - name: Stage artifacts and compute MD5
+        id: pkg
         run: |
           mkdir -p artifacts
           cp publish/Jellyfin.Plugin.SeasonSubtitles.dll artifacts/
           cp meta.json artifacts/
-          cd artifacts
-          zip season-subtitle-downloader.zip Jellyfin.Plugin.SeasonSubtitles.dll meta.json
+          (cd artifacts && zip -q season-subtitle-downloader.zip Jellyfin.Plugin.SeasonSubtitles.dll meta.json)
+          MD5=$(md5sum artifacts/season-subtitle-downloader.zip | awk '{print toupper($1)}')
+          echo "md5=$MD5" >> "$GITHUB_OUTPUT"
+          echo "MD5: $MD5"
 
-      - name: Release
+      - name: Prepend new entry to manifest.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          VERSION="${{ steps.ver.outputs.version }}"
+          MD5="${{ steps.pkg.outputs.md5 }}"
+          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          SRC="https://github.com/${{ github.repository }}/releases/download/${TAG}/season-subtitle-downloader.zip"
+          CHANGELOG="$(git log -1 --pretty=%s "$GITHUB_SHA")"
+
+          tmp=$(mktemp)
+          jq \
+            --arg v  "$VERSION" \
+            --arg cl "$CHANGELOG" \
+            --arg s  "$SRC" \
+            --arg c  "$MD5" \
+            --arg t  "$TS" \
+            '.[0].versions = ([{version:$v, changelog:$cl, targetAbi:"10.11.0.0", sourceUrl:$s, checksum:$c, timestamp:$t}] + .[0].versions)' \
+            manifest.json > "$tmp"
+          mv "$tmp" manifest.json
+
+      - name: Commit manifest + meta back to main
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json meta.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore(release): publish ${{ steps.ver.outputs.tag }} [skip ci]"
+            git push origin HEAD:main
+          fi
+
+      - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
