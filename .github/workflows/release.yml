@@ -29,11 +29,17 @@ jobs:
         id: ver
         run: |
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            TAG="${GITHUB_REF##*/}"          # e.g. v1.0.1
+            TAG="${GITHUB_REF##*/}"          # e.g. v1.0.1 or v1.0.1.0
           else
             TAG="v$(jq -r .version meta.json)"   # workflow_dispatch fallback
           fi
           VERSION="${TAG#v}"                  # e.g. 1.0.1
+          # Normalize to 4-part version (1.0.1 -> 1.0.1.0)
+          dots=$(echo "$VERSION" | tr -cd '.' | wc -c)
+          while [ "$dots" -lt 3 ]; do
+            VERSION="${VERSION}.0"
+            dots=$((dots + 1))
+          done
           echo "tag=$TAG"          >> "$GITHUB_OUTPUT"
           echo "version=$VERSION"  >> "$GITHUB_OUTPUT"
           echo "Tag: $TAG  Version: $VERSION"
