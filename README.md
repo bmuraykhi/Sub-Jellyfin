@@ -15,10 +15,11 @@ plugin.
 - The **File Transformation** plugin (Dashboard → Plugins → Catalog → *File Transformation* → Install → restart Jellyfin)
 - A working remote subtitle provider in Jellyfin (e.g. OpenSubtitles) with valid credentials
 
-## Install (recommended): add the plugin repository
+## Install
 
-This is a one-time setup. After it's done, this plugin behaves like any other
-catalog plugin — install, update, and uninstall from Jellyfin's web UI.
+One-time setup. After it's done, install/update/uninstall happens entirely
+through Jellyfin's web UI — no shell access, no file copying, and new versions
+arrive as one-click upgrades from the catalog.
 
 1. Dashboard → **Plugins** → **Repositories** → **+** (add).
 2. Repository name: `Season Subtitle Downloader`.
@@ -49,9 +50,12 @@ catalog plugin — install, update, and uninstall from Jellyfin's web UI.
 Subtitles are fetched one episode at a time so providers like OpenSubtitles
 don't rate-limit you.
 
-## Manual install (fallback)
+<details>
+<summary><b>Manual install</b> — only if you can't reach GitHub from Jellyfin or want a specific older build</summary>
 
-If you can't or don't want to add the repository, drop the two files in by hand.
+&nbsp;
+
+Drop the two files in by hand. You'll have to repeat this for every update.
 
 1. Download the latest release zip from
    <https://github.com/bmuraykhi/Sub-Jellyfin/releases/latest>
@@ -68,6 +72,8 @@ If you can't or don't want to add the repository, drop the two files in by hand.
 
 3. Make sure Jellyfin can read the files (e.g. `chown jellyfin:jellyfin` on
    Linux, or match `PUID:PGID` for Docker), then restart Jellyfin.
+
+</details>
 
 ## Uninstall
 
