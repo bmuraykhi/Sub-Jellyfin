@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Season Subtitle Downloader",
+    "guid": "a3c0e5c3-7d0d-4b91-9d1c-2e6f9b3a1c5d",
+    "description": "Adds a 'Download Subs' button to season detail pages that batch-downloads subtitles for every episode in the season.",
+    "overview": "One-click subtitle download for an entire season. Requires the File Transformation plugin.",
+    "owner": "Bandar",
+    "category": "General",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "changelog": "Initial release.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v0.1/season-subtitle-downloader.zip",
+        "checksum": "8B283B0FDDA92CA254A7C4C22C92757C",
+        "timestamp": "2026-05-05T00:00:00Z"
+      }
+    ]
+  }
+]
