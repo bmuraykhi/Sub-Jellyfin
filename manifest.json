@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "1.0.1.1",
+        "changelog": "docs(readme): simplify catalog install instructions and collapse manual fallback",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v1.0.1.1/season-subtitle-downloader.zip",
+        "checksum": "42D0CD99680E6DD47645410A06C1CCCE",
+        "timestamp": "2026-05-07T20:37:14Z"
+      },
+      {
         "version": "1.0.1",
         "changelog": "docs(release): add catalog-based install flow and manual fallback",
         "targetAbi": "10.11.0.0",
