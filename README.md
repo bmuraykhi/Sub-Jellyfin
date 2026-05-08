@@ -1,8 +1,14 @@
 # Season Subtitle Downloader (Jellyfin plugin)
 
-Adds a **Download Subs** button to season pages in Jellyfin's web client. Click
-it to batch-download subtitles for every episode in the season, using whichever
-subtitle providers (e.g. OpenSubtitles) you already have configured.
+[![Latest release](https://img.shields.io/github/v/release/bmuraykhi/Sub-Jellyfin?label=release&color=AA5CC3)](https://github.com/bmuraykhi/Sub-Jellyfin/releases/latest)
+[![License](https://img.shields.io/github/license/bmuraykhi/Sub-Jellyfin?color=blue)](LICENSE)
+[![CI](https://github.com/bmuraykhi/Sub-Jellyfin/actions/workflows/ci.yml/badge.svg)](https://github.com/bmuraykhi/Sub-Jellyfin/actions/workflows/ci.yml)
+[![Release workflow](https://github.com/bmuraykhi/Sub-Jellyfin/actions/workflows/release.yml/badge.svg)](https://github.com/bmuraykhi/Sub-Jellyfin/actions/workflows/release.yml)
+
+Adds a **Download Subs** button to season *and* series pages in Jellyfin's web
+client. Click it to batch-download subtitles for every episode (one season or
+the whole show), using whichever subtitle providers (e.g. OpenSubtitles) you
+already have configured.
 
 Small and self-contained: a ~25 KB DLL plus a `meta.json`. It doesn't modify
 `jellyfin-web` — it injects a tiny script into `index.html` via the
