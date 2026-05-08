@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "1.0.1.2",
+        "changelog": "docs(readme): update badges and describe series-level subtitle support",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v1.0.1.2/season-subtitle-downloader.zip",
+        "checksum": "5505CA11FCF13F423852E51E175C8EBD",
+        "timestamp": "2026-05-08T22:23:34Z"
+      },
+      {
         "version": "1.0.1.1",
         "changelog": "docs(readme): simplify catalog install instructions and collapse manual fallback",
         "targetAbi": "10.11.0.0",
