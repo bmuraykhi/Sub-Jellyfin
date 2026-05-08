@@ -1,0 +1,105 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please fill in the details below
+        so it's reproducible.
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: From Dashboard → Plugins → My Plugins.
+      placeholder: e.g. 1.0.2
+    validations:
+      required: true
+
+  - type: input
+    id: jellyfin-version
+    attributes:
+      label: Jellyfin version
+      description: From Dashboard → About.
+      placeholder: e.g. 10.11.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Install method
+      options:
+        - Catalog (manifest URL)
+        - Manual file copy
+        - Built from source
+    validations:
+      required: true
+
+  - type: input
+    id: file-transformation-version
+    attributes:
+      label: File Transformation plugin version
+      placeholder: e.g. 2.x
+    validations:
+      required: true
+
+  - type: dropdown
+    id: jellyfin-platform
+    attributes:
+      label: Jellyfin platform
+      options:
+        - Linux (systemd)
+        - Docker
+        - Windows
+        - macOS
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser + version
+      placeholder: e.g. Firefox 130, Chrome 128
+    validations:
+      required: true
+
+  - type: textarea
+    id: subtitle-providers
+    attributes:
+      label: Active subtitle providers
+      description: Which remote subtitle providers do you have configured? (e.g. OpenSubtitles, OpenSubtitles.com)
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: What did you click, in what order? What did you expect, what happened?
+      placeholder: |
+        1. Open a TV series → Season 1.
+        2. Click Download Subs.
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: jellyfin-logs
+    attributes:
+      label: Jellyfin server logs
+      description: Relevant lines from Dashboard → Logs around the time of the issue.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: browser-console
+    attributes:
+      label: Browser console output
+      description: Any `[season-subs]` lines or errors from DevTools → Console.
+      render: shell
+    validations:
+      required: false

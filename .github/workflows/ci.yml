@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: dotnet restore Jellyfin.Plugin.SeasonSubtitles.csproj
+
+      - name: Build (Release)
+        run: dotnet build Jellyfin.Plugin.SeasonSubtitles.csproj -c Release --no-restore
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Lint embedded JS
+        run: node --check Web/season-subtitles.js
+
+      - name: Validate manifest.json + meta.json
+        run: |
+          for f in manifest.json meta.json; do
+            python3 -c "import json,sys; json.load(open('$f'))" \
+              && echo "$f: OK" \
+              || (echo "$f: invalid JSON"; exit 1)
+          done
