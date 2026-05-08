@@ -17,5 +17,7 @@
     <ItemGroup>
         <None Remove="Web\season-subtitles.js" />
         <EmbeddedResource Include="Web\season-subtitles.js" />
+        <None Remove="Configuration\configPage.html" />
+        <EmbeddedResource Include="Configuration\configPage.html" />
     </ItemGroup>
 </Project>

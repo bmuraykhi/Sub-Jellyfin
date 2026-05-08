@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Season Subtitle Downloader</title>
+</head>
+<body>
+<div id="SeasonSubtitleDownloaderConfigPage"
+     data-role="page"
+     class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-checkbox">
+
+    <div data-role="content">
+        <div class="content-primary">
+
+            <form class="seasonSubsConfigForm">
+                <h1 style="margin-bottom: 0.25em;">Season Subtitle Downloader</h1>
+                <p class="fieldDescription" style="margin-top: 0;">
+                    Defaults applied when you click the <em>Download Subs</em> button.
+                    File Transformation must also be installed for the button to appear.
+                </p>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="DefaultLanguage">
+                        Default subtitle language (3-letter ISO)
+                    </label>
+                    <input is="emby-input"
+                           id="DefaultLanguage"
+                           type="text"
+                           maxlength="3"
+                           autocomplete="off"
+                           placeholder="eng"
+                           pattern="[A-Za-z]{3}" />
+                    <div class="fieldDescription">
+                        Leave blank to fall back to the current user's Jellyfin subtitle preference, then to <code>eng</code>.
+                    </div>
+                </div>
+
+                <div class="checkboxContainer">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="SkipExistingByDefault" />
+                        <span>Skip episodes that already have a subtitle in the chosen language</span>
+                    </label>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="MaxRetries">
+                        Retry attempts per episode on transient failures
+                    </label>
+                    <input is="emby-input"
+                           id="MaxRetries"
+                           type="number"
+                           min="0"
+                           max="10"
+                           step="1" />
+                    <div class="fieldDescription">
+                        How many extra attempts to make for an episode when the provider returns a network error or 5xx / 429. Default <code>2</code>. Set to <code>0</code> to disable retries.
+                    </div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="RequestDelayMs">
+                        Delay between episodes (ms)
+                    </label>
+                    <input is="emby-input"
+                           id="RequestDelayMs"
+                           type="number"
+                           min="0"
+                           max="10000"
+                           step="50" />
+                    <div class="fieldDescription">
+                        Pause inserted between episode fetches. Useful if your provider rate-limits aggressively. Default <code>0</code>.
+                    </div>
+                </div>
+
+                <br />
+                <div>
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                        <span>Save</span>
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var pluginUniqueId = 'a3c0e5c3-7d0d-4b91-9d1c-2e6f9b3a1c5d';
+
+            function getPage() {
+                return document.querySelector('#SeasonSubtitleDownloaderConfigPage');
+            }
+
+            function load(page) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
+                    page.querySelector('#DefaultLanguage').value = (config.DefaultLanguage || '').toLowerCase();
+                    page.querySelector('#SkipExistingByDefault').checked = !!config.SkipExistingByDefault;
+                    page.querySelector('#MaxRetries').value = (config.MaxRetries != null ? config.MaxRetries : 2);
+                    page.querySelector('#RequestDelayMs').value = (config.RequestDelayMs != null ? config.RequestDelayMs : 0);
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            function save(page) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
+                    var lang = (page.querySelector('#DefaultLanguage').value || '').trim().toLowerCase();
+                    if (lang && !/^[a-z]{3}$/.test(lang)) {
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert('Default language must be a 3-letter ISO code (e.g. eng) or blank.');
+                        return;
+                    }
+                    config.DefaultLanguage = lang;
+                    config.SkipExistingByDefault = page.querySelector('#SkipExistingByDefault').checked;
+                    var retries = parseInt(page.querySelector('#MaxRetries').value, 10);
+                    config.MaxRetries = isFinite(retries) && retries >= 0 ? retries : 2;
+                    var delay = parseInt(page.querySelector('#RequestDelayMs').value, 10);
+                    config.RequestDelayMs = isFinite(delay) && delay >= 0 ? delay : 0;
+
+                    ApiClient.updatePluginConfiguration(pluginUniqueId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+            }
+
+            var page = getPage();
+            page.addEventListener('pageshow', function () { load(page); });
+            page.querySelector('.seasonSubsConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                save(page);
+                return false;
+            });
+            // Load once on script execution as well — pageshow may have already
+            // fired by the time the embedded <script> runs.
+            load(page);
+        })();
+    </script>
+</div>
+</body>
+</html>
