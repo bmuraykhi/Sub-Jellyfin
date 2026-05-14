@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "1.0.1.3",
+        "changelog": "feat: add top-N subtitle variants per episode (1-5)",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v1.0.1.3/season-subtitle-downloader.zip",
+        "checksum": "C8EDBEA94FB7261193F192C5928DAF84",
+        "timestamp": "2026-05-14T11:58:25Z"
+      },
+      {
         "version": "1.0.1.2",
         "changelog": "docs(readme): update badges and describe series-level subtitle support",
         "targetAbi": "10.11.0.0",
