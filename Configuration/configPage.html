@@ -72,6 +72,21 @@
                     </div>
                 </div>
 
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="TopVariants">
+                        Variants downloaded per episode
+                    </label>
+                    <input is="emby-input"
+                           id="TopVariants"
+                           type="number"
+                           min="1"
+                           max="5"
+                           step="1" />
+                    <div class="fieldDescription">
+                        How many of the top-ranked subtitles to pull per episode. Default <code>1</code>. Set to <code>3</code>-<code>5</code> if the highest-ranked match often doesn't sync — you'll get extra candidates to choose from in the player. Multiplies provider calls accordingly.
+                    </div>
+                </div>
+
                 <br />
                 <div>
                     <button is="emby-button" type="submit" class="raised button-submit block emby-button">
@@ -98,6 +113,7 @@
                     page.querySelector('#SkipExistingByDefault').checked = !!config.SkipExistingByDefault;
                     page.querySelector('#MaxRetries').value = (config.MaxRetries != null ? config.MaxRetries : 2);
                     page.querySelector('#RequestDelayMs').value = (config.RequestDelayMs != null ? config.RequestDelayMs : 0);
+                    page.querySelector('#TopVariants').value = (config.TopVariants != null && config.TopVariants >= 1 ? config.TopVariants : 1);
                     Dashboard.hideLoadingMsg();
                 });
             }
@@ -117,6 +133,8 @@
                     config.MaxRetries = isFinite(retries) && retries >= 0 ? retries : 2;
                     var delay = parseInt(page.querySelector('#RequestDelayMs').value, 10);
                     config.RequestDelayMs = isFinite(delay) && delay >= 0 ? delay : 0;
+                    var variants = parseInt(page.querySelector('#TopVariants').value, 10);
+                    config.TopVariants = isFinite(variants) ? Math.min(5, Math.max(1, variants)) : 1;
 
                     ApiClient.updatePluginConfiguration(pluginUniqueId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);

@@ -19,6 +19,8 @@
         dlgScopeSeries: (n, s) => `${n} episode${n === 1 ? '' : 's'} across ${s} season${s === 1 ? '' : 's'}.`,
         dlgLangLabel: 'Language (3-letter ISO, e.g. eng, fra, heb)',
         dlgSkipLabel: 'Skip episodes that already have a subtitle in this language',
+        dlgVariantsLabel: 'Variants per episode (1-5)',
+        dlgVariantsHint: 'Pulls the top-N highest-ranked subtitles per episode. Useful when the top match often desyncs.',
         btnCancel: 'Cancel',
         btnStart: 'Start',
         btnClose: 'Close',
@@ -251,7 +253,7 @@
     // ---------- options dialog ----------
     // Resolves with { language, skipExisting } or null on cancel.
 
-    function openOptionsDialog({ titleText, scopeText, defaultLang, defaultSkip }) {
+    function openOptionsDialog({ titleText, scopeText, defaultLang, defaultSkip, defaultVariants }) {
         return new Promise(resolve => {
             const overlay = mkOverlay();
             const box = mkBox();
@@ -274,11 +276,27 @@
             });
             langInput.value = defaultLang;
 
-            const skipRow = el('label', { style: 'display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:18px;' });
+            const skipRow = el('label', { style: 'display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:14px;' });
             const skipCb = el('input', { type: 'checkbox' });
             skipCb.checked = !!defaultSkip;
             skipRow.appendChild(skipCb);
             skipRow.appendChild(document.createTextNode(STR.dlgSkipLabel));
+
+            const variantsLabel = el(
+                'label',
+                { style: 'display:block; font-size:13px; margin-bottom:6px;', htmlFor: 'season-subs-variants' },
+                STR.dlgVariantsLabel
+            );
+            const variantsInput = el('input', {
+                id: 'season-subs-variants', type: 'number', min: 1, max: 5, step: 1,
+                style: 'width:90px; padding:6px 8px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; box-sizing:border-box;'
+            });
+            variantsInput.value = String(Math.min(5, Math.max(1, parseInt(defaultVariants, 10) || 1)));
+            const variantsHint = el(
+                'div',
+                { style: 'opacity:0.65; font-size:12px; margin-top:4px; margin-bottom:18px;' },
+                STR.dlgVariantsHint
+            );
 
             const buttons = el('div', { style: 'display:flex; justify-content:flex-end; gap:10px;' });
             const cancelBtn = mkButton(STR.btnCancel, false);
@@ -292,7 +310,9 @@
             function submit() {
                 const lang = (langInput.value || '').trim().toLowerCase();
                 if (!/^[a-z]{3}$/.test(lang)) { langInput.focus(); langInput.select(); return; }
-                close({ language: lang, skipExisting: skipCb.checked });
+                const v = parseInt(variantsInput.value, 10);
+                const topVariants = isFinite(v) ? Math.min(5, Math.max(1, v)) : 1;
+                close({ language: lang, skipExisting: skipCb.checked, topVariants });
             }
             function onKey(e) {
                 if (e.key === 'Escape') { e.preventDefault(); close(null); }
@@ -306,7 +326,7 @@
 
             buttons.appendChild(cancelBtn);
             buttons.appendChild(startBtn);
-            box.append(title, sub, langLabel, langInput, skipRow, buttons);
+            box.append(title, sub, langLabel, langInput, skipRow, variantsLabel, variantsInput, variantsHint, buttons);
             overlay.appendChild(box);
             document.body.appendChild(overlay);
             setTimeout(() => { langInput.focus(); langInput.select(); }, 0);
@@ -444,10 +464,23 @@
 
     async function processEpisode(ep, opts, isCancelled) {
         const search = await withRetry(() => searchSubtitles(ep.Id, opts.language), opts.maxRetries, 500, isCancelled);
-        const top = Array.isArray(search) && search.length > 0 ? search[0] : null;
-        if (!top || !top.Id) return { kind: 'missing' };
-        await withRetry(() => downloadSubtitle(ep.Id, top.Id), opts.maxRetries, 500, isCancelled);
-        return { kind: 'downloaded' };
+        const results = Array.isArray(search) ? search.filter(r => r && r.Id) : [];
+        if (results.length === 0) return { kind: 'missing' };
+        const wanted = results.slice(0, Math.min(5, Math.max(1, opts.topVariants || 1)));
+        let downloaded = 0;
+        let lastErr = null;
+        for (const r of wanted) {
+            if (isCancelled()) throw new Error('cancelled');
+            try {
+                await withRetry(() => downloadSubtitle(ep.Id, r.Id), opts.maxRetries, 500, isCancelled);
+                downloaded++;
+            } catch (e) {
+                if (e && e.message === 'cancelled') throw e;
+                lastErr = e;
+            }
+        }
+        if (downloaded > 0) return { kind: 'downloaded' };
+        throw lastErr || new Error('all variants failed');
     }
 
     async function runBatch(progress, episodes, opts) {
@@ -597,12 +630,14 @@
                     titleText,
                     scopeText,
                     defaultLang: defaultLanguage(config, user),
-                    defaultSkip: config.SkipExistingByDefault !== false
+                    defaultSkip: config.SkipExistingByDefault !== false,
+                    defaultVariants: typeof config.TopVariants === 'number' && config.TopVariants >= 1 ? config.TopVariants : 1
                 });
                 if (!opts) return;
                 const fullOpts = {
                     language: opts.language,
                     skipExisting: opts.skipExisting,
+                    topVariants: opts.topVariants,
                     maxRetries: typeof config.MaxRetries === 'number' && config.MaxRetries >= 0 ? config.MaxRetries : 2,
                     requestDelayMs: typeof config.RequestDelayMs === 'number' && config.RequestDelayMs >= 0 ? config.RequestDelayMs : 0
                 };

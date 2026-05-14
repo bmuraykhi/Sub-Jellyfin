@@ -22,6 +22,11 @@ release tags (`vX.Y.Z`).
   fans out across every season in the series; the dialog shows the total
   episode count and how many seasons it spans.
 - ARIA labels on injected buttons and Esc / Enter keyboard support on dialogs.
+- **Top-N variants per episode** — download the 1-5 highest-ranked subtitles
+  per episode in one pass instead of just the top one, giving you backup
+  candidates when the highest-ranked match doesn't sync. Configurable both as
+  a plugin-wide default and per-run from the options dialog. Default stays at
+  1 so existing behavior is unchanged.
 
 ### Changed
 

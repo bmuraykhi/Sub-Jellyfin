@@ -10,6 +10,7 @@ public class PluginConfiguration : BasePluginConfiguration
         SkipExistingByDefault = true;
         MaxRetries = 2;
         RequestDelayMs = 0;
+        TopVariants = 1;
     }
 
     /// <summary>
@@ -33,4 +34,11 @@ public class PluginConfiguration : BasePluginConfiguration
     /// strict provider rate limits. 0 disables.
     /// </summary>
     public int RequestDelayMs { get; set; }
+
+    /// <summary>
+    /// How many of the top-ranked remote subtitles to download per episode.
+    /// Default 1. Range 1-5. Useful when the highest-ranked match isn't always
+    /// the best fit — pulling 3-5 variants raises the odds at least one syncs.
+    /// </summary>
+    public int TopVariants { get; set; }
 }
