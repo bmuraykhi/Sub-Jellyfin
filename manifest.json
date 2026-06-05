@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "1.0.1.4",
+        "changelog": "fix(web): improve Download Subs button injection reliability",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v1.0.1.4/season-subtitle-downloader.zip",
+        "checksum": "F5CEC2833F534B123558ADCD656BAA44",
+        "timestamp": "2026-06-05T21:50:28Z"
+      },
+      {
         "version": "1.0.1.3",
         "changelog": "feat: add top-N subtitle variants per episode (1-5)",
         "targetAbi": "10.11.0.0",
