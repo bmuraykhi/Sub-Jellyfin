@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "1.0.1.5",
+        "changelog": "feat(web): add debug diagnostics and injection reliability improvements",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v1.0.1.5/season-subtitle-downloader.zip",
+        "checksum": "357313A6B02628E79ADE4B03BEE637CB",
+        "timestamp": "2026-06-05T22:27:15Z"
+      },
+      {
         "version": "1.0.1.4",
         "changelog": "fix(web): improve Download Subs button injection reliability",
         "targetAbi": "10.11.0.0",
