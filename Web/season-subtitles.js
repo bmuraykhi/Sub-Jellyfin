@@ -7,6 +7,25 @@
     const PLUGIN_GUID = 'a3c0e5c3-7d0d-4b91-9d1c-2e6f9b3a1c5d';
     const LOG = '[season-subs]';
 
+    // Verbose debug logging is gated by localStorage so it doesn't spam consoles
+    // for users who don't need it. Toggle from the browser console:
+    //     window.__seasonSubs.enableDebug()   // verbose, reloads page
+    //     window.__seasonSubs.disableDebug()  // back to quiet, reloads page
+    //     window.__seasonSubs.status()        // one-shot snapshot of plugin state
+    const DEBUG = (() => {
+        try { return localStorage.getItem('seasonSubsDebug') === '1'; }
+        catch (_) { return false; }
+    })();
+
+    function dlog() {
+        if (!DEBUG) return;
+        const a = [LOG].concat(Array.prototype.slice.call(arguments));
+        console.log.apply(console, a);
+    }
+
+    console.log(LOG, 'script loaded. For diagnostics run: window.__seasonSubs.status()  — for verbose logs: window.__seasonSubs.enableDebug()');
+    if (DEBUG) console.log(LOG, 'DEBUG mode ON');
+
     // All user-visible strings. Centralized for future localization — swap this
     // object out (or wrap it with a loader) to translate the UI in one place.
     const STR = {
@@ -688,44 +707,67 @@
         return null;
     }
 
+    let lastInjectFailLog = null;
+
     const handleDetails = debounce(async () => {
+        dlog('tick — hash:', window.location.hash);
         const visiblePage = findVisibleDetailPage();
-        if (!visiblePage) { lastItemId = null; return; }
+        if (!visiblePage) { dlog('no visible #itemDetailPage'); lastItemId = null; return; }
+        dlog('visible page found, class=', visiblePage.className);
 
         const itemId = new URLSearchParams((window.location.hash.split('?')[1] || '')).get('id');
-        if (!itemId) return;
-        if (lastItemId === itemId && visiblePage.querySelector('.season-subs-btn')) return;
+        if (!itemId) { dlog('no itemId in hash'); return; }
+        if (lastItemId === itemId && visiblePage.querySelector('.season-subs-btn')) {
+            dlog('already injected for', itemId);
+            return;
+        }
 
         try {
             const userId = ApiClient.getCurrentUserId();
             const item = await ApiClient.getItem(userId, itemId);
-            if (!item) return;
+            if (!item) { dlog('getItem returned null for', itemId); return; }
+            dlog('item type=', item.Type, 'name=', item.Name);
 
             let ctx = null;
             if (item.Type === 'Season') {
                 const seriesId = item.SeriesId || item.ParentId;
-                if (!seriesId) return;
+                if (!seriesId) { dlog('Season has no SeriesId/ParentId'); return; }
                 ctx = { mode: 'season', seriesId, seasonId: item.Id };
             } else if (item.Type === 'Series') {
                 ctx = { mode: 'series', seriesId: item.Id };
             } else {
+                dlog('skipping non-Season/Series item:', item.Type);
                 lastItemId = itemId;
                 return;
             }
 
+            const container = findButtonContainer(visiblePage);
+            dlog('container found?', !!container, container ? 'class=' + container.className : '');
+
             const injected = injectButton(visiblePage, ctx);
             // Only remember the item once the button is actually in the DOM, so we
-            // keep retrying via the MutationObserver if the container hasn't been
-            // rendered yet on this tick.
-            if (injected) lastItemId = itemId;
+            // keep retrying via the MutationObserver / polling if the container
+            // hasn't been rendered yet on this tick.
+            if (injected) {
+                lastItemId = itemId;
+                console.log(LOG, 'button injected for', item.Type, itemId);
+            } else if (lastInjectFailLog !== itemId) {
+                lastInjectFailLog = itemId;
+                console.warn(LOG, 'no detail-button container yet for', item.Type, itemId, '— will retry');
+            }
         } catch (e) {
             console.warn(LOG, 'details handler error', e);
         }
     }, 150);
 
+    let _startPolls = 0;
     function start() {
         if (observerStarted) return;
         if (typeof ApiClient === 'undefined' || !ApiClient.getCurrentUserId || !ApiClient.getCurrentUserId()) {
+            if (_startPolls === 0 || _startPolls === 10 || _startPolls === 50) {
+                console.log(LOG, 'waiting for ApiClient (poll #' + _startPolls + ')');
+            }
+            _startPolls++;
             setTimeout(start, 300);
             return;
         }
@@ -734,9 +776,49 @@
         loadConfig();
         const obs = new MutationObserver(() => handleDetails());
         obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+        // Polling fallback: even when MutationObserver doesn't catch the relevant
+        // change (e.g. attribute changes outside the filter, or synthesized renders),
+        // we re-check the page every second. The handler is debounced and exits
+        // early when the button is already present, so the overhead is negligible.
+        setInterval(handleDetails, 1000);
+        window.addEventListener('hashchange', handleDetails);
         handleDetails();
         console.log(LOG, 'initialized');
     }
+
+    // Console-accessible diagnostics. Persists across IIFE re-entries.
+    window.__seasonSubs = {
+        enableDebug() {
+            try { localStorage.setItem('seasonSubsDebug', '1'); } catch (_) {}
+            console.log(LOG, 'debug enabled — reloading');
+            location.reload();
+        },
+        disableDebug() {
+            try { localStorage.removeItem('seasonSubsDebug'); } catch (_) {}
+            console.log(LOG, 'debug disabled — reloading');
+            location.reload();
+        },
+        status() {
+            const page = findVisibleDetailPage();
+            const allPages = document.querySelectorAll('#itemDetailPage');
+            return {
+                scriptLoaded: !!window.__seasonSubsLoaded,
+                observerStarted,
+                debugMode: DEBUG,
+                hash: location.hash,
+                hashItemId: new URLSearchParams((location.hash.split('?')[1] || '')).get('id'),
+                detailPagesInDom: allPages.length,
+                visiblePage: !!page,
+                visiblePageClass: page ? page.className : null,
+                containerFound: page ? !!findButtonContainer(page) : null,
+                containerClass: page && findButtonContainer(page) ? findButtonContainer(page).className : null,
+                buttonInDom: !!document.querySelector('.season-subs-btn'),
+                lastItemId,
+                apiClientReady: typeof ApiClient !== 'undefined' && !!(ApiClient.getCurrentUserId && ApiClient.getCurrentUserId())
+            };
+        },
+        forceInject() { handleDetails(); return 'queued'; }
+    };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', start);
