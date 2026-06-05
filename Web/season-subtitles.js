@@ -564,25 +564,37 @@
 
     // ---------- button injection ----------
 
-    function injectButton(visiblePage, ctx) {
-        if (visiblePage.querySelector('.season-subs-btn')) return;
-
+    function findButtonContainer(visiblePage) {
         const containerSelectors = [
+            '.mainDetailButtons',
             '.detailButtons',
             '.itemActionsBottom',
-            '.mainDetailButtons',
             '.detailButtonsContainer'
         ];
-        let buttonContainer = null;
         for (const sel of containerSelectors) {
             const found = visiblePage.querySelector(sel);
-            if (found) { buttonContainer = found; break; }
+            if (found) return found;
         }
-        if (!buttonContainer) return;
+        return null;
+    }
+
+    function injectButton(visiblePage, ctx) {
+        if (visiblePage.querySelector('.season-subs-btn')) return true;
+
+        const buttonContainer = findButtonContainer(visiblePage);
+        if (!buttonContainer) return false;
 
         const buttonTitle = ctx.mode === 'series' ? STR.btnTitleSeries : STR.btnTitleSeason;
 
-        const button = document.createElement('button');
+        // createElement with { is } is required for Jellyfin's customized-built-in
+        // <button is="emby-button"> to be upgraded. Setting the attribute afterwards
+        // does not trigger custom-element registration.
+        let button;
+        try {
+            button = document.createElement('button', { is: 'emby-button' });
+        } catch (_) {
+            button = document.createElement('button');
+        }
         button.setAttribute('is', 'emby-button');
         button.type = 'button';
         button.className = 'button-flat detailButton emby-button season-subs-btn';
@@ -656,12 +668,28 @@
         } else {
             buttonContainer.appendChild(button);
         }
+        return true;
     }
 
     // ---------- page detection ----------
 
+    function findVisibleDetailPage() {
+        // Jellyfin can keep multiple cached #itemDetailPage nodes in the DOM during
+        // navigation. Prefer the last one without `.hide` (the most-recently rendered).
+        const pages = document.querySelectorAll('#itemDetailPage');
+        for (let i = pages.length - 1; i >= 0; i--) {
+            const p = pages[i];
+            if (!p.classList.contains('hide') && p.offsetParent !== null) return p;
+        }
+        // Fallback: any not-hidden page, even if offsetParent check fails.
+        for (let i = pages.length - 1; i >= 0; i--) {
+            if (!pages[i].classList.contains('hide')) return pages[i];
+        }
+        return null;
+    }
+
     const handleDetails = debounce(async () => {
-        const visiblePage = document.querySelector('#itemDetailPage:not(.hide)');
+        const visiblePage = findVisibleDetailPage();
         if (!visiblePage) { lastItemId = null; return; }
 
         const itemId = new URLSearchParams((window.location.hash.split('?')[1] || '')).get('id');
@@ -673,17 +701,23 @@
             const item = await ApiClient.getItem(userId, itemId);
             if (!item) return;
 
+            let ctx = null;
             if (item.Type === 'Season') {
                 const seriesId = item.SeriesId || item.ParentId;
                 if (!seriesId) return;
-                lastItemId = itemId;
-                injectButton(visiblePage, { mode: 'season', seriesId, seasonId: item.Id });
+                ctx = { mode: 'season', seriesId, seasonId: item.Id };
             } else if (item.Type === 'Series') {
-                lastItemId = itemId;
-                injectButton(visiblePage, { mode: 'series', seriesId: item.Id });
+                ctx = { mode: 'series', seriesId: item.Id };
             } else {
                 lastItemId = itemId;
+                return;
             }
+
+            const injected = injectButton(visiblePage, ctx);
+            // Only remember the item once the button is actually in the DOM, so we
+            // keep retrying via the MutationObserver if the container hasn't been
+            // rendered yet on this tick.
+            if (injected) lastItemId = itemId;
         } catch (e) {
             console.warn(LOG, 'details handler error', e);
         }
