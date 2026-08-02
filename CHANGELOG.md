@@ -27,6 +27,7 @@ release tags (`vX.Y.Z`).
   candidates when the highest-ranked match doesn't sync. Configurable both as
   a plugin-wide default and per-run from the options dialog. Default stays at
   1 so existing behavior is unchanged.
+- Unit tests (IndexHtmlPatch, cross-file invariants) and ESLint gate in CI.
 
 ### Changed
 
