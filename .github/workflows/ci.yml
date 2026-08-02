@@ -25,12 +25,18 @@ jobs:
       - name: Build (Release)
         run: dotnet build Jellyfin.Plugin.SeasonSubtitles.csproj -c Release --no-restore
 
+      - name: Test
+        run: dotnet test tests/Jellyfin.Plugin.SeasonSubtitles.Tests/Jellyfin.Plugin.SeasonSubtitles.Tests.csproj -c Release
+
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
-      - name: Lint embedded JS
-        run: node --check Web/season-subtitles.js
+      - name: Install lint deps
+        run: npm ci
+
+      - name: Lint JS
+        run: npx eslint .
 
       - name: Validate manifest.json + meta.json
         run: |
