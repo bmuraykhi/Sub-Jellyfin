@@ -40,6 +40,7 @@ release tags (`vX.Y.Z`).
   locale layer can swap them in one place.
 - README install path is now catalog-first; the manual file-drop is collapsed
   into a fold-out "only if you can't reach GitHub" section.
+- Relicensed from MIT to The Unlicense (public domain).
 
 ### Fixed
 

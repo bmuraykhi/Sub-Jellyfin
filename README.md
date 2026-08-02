@@ -99,4 +99,4 @@ dotnet publish Jellyfin.Plugin.SeasonSubtitles.csproj -c Release -o publish
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+The Unlicense (public domain) — see [LICENSE](LICENSE).
