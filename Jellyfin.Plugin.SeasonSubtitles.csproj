@@ -10,8 +10,8 @@
         <AssemblyName>Jellyfin.Plugin.SeasonSubtitles</AssemblyName>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="Jellyfin.Controller" Version="10.11.0" />
-        <PackageReference Include="Jellyfin.Model" Version="10.11.0" />
+        <PackageReference Include="Jellyfin.Controller" Version="10.11.11" />
+        <PackageReference Include="Jellyfin.Model" Version="10.11.11" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     </ItemGroup>
     <ItemGroup>

@@ -74,16 +74,24 @@ public class InvariantTests
     }
 
     [Fact]
-    public void TargetAbi_MatchesJellyfinControllerPackageVersion()
+    public void TargetAbi_IsFloorWithinJellyfinPackageSeries()
     {
         using var metaDoc = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepoRoot, "meta.json")));
         var targetAbi = metaDoc.RootElement.GetProperty("targetAbi").GetString();
+        Assert.False(string.IsNullOrEmpty(targetAbi));
+        var abi = Version.Parse(targetAbi!);
 
         var csprojText = File.ReadAllText(Path.Combine(RepoRoot, "Jellyfin.Plugin.SeasonSubtitles.csproj"));
-        var match = Regex.Match(csprojText, "Include=\"Jellyfin.Controller\" Version=\"([^\"]+)\"");
-        Assert.True(match.Success, "Could not find Jellyfin.Controller package reference in csproj");
+        var controller = Regex.Match(csprojText, "Include=\"Jellyfin.Controller\" Version=\"([^\"]+)\"");
+        var model = Regex.Match(csprojText, "Include=\"Jellyfin.Model\" Version=\"([^\"]+)\"");
+        Assert.True(controller.Success, "Could not find Jellyfin.Controller package reference in csproj");
+        Assert.True(model.Success, "Could not find Jellyfin.Model package reference in csproj");
+        Assert.Equal(controller.Groups[1].Value, model.Groups[1].Value);
 
-        var packageVersion = match.Groups[1].Value;
-        Assert.Equal(targetAbi, packageVersion + ".0");
+        var pkg = Version.Parse(controller.Groups[1].Value + ".0");
+        Assert.Equal(pkg.Major, abi.Major);
+        Assert.Equal(pkg.Minor, abi.Minor);
+        Assert.True(abi <= pkg, $"targetAbi {abi} must not exceed the compiled package version {pkg}");
+        Assert.Equal(4, targetAbi!.Split('.').Length);
     }
 }

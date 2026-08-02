@@ -44,6 +44,8 @@ release tags (`vX.Y.Z`).
 - Releases now build from the tagged commit instead of `main`, publish the
   GitHub Release before updating the catalog manifest, and pin all workflow
   actions to commit SHAs.
+- Built against Jellyfin 10.11.11 packages while the minimum supported server
+  stays 10.11.0; verified against the OpenSubtitles plugin v24.
 
 ### Fixed
 

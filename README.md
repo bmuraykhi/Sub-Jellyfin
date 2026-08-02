@@ -17,9 +17,9 @@ plugin.
 
 ## Requirements
 
-- Jellyfin **10.11+**
+- Jellyfin **10.11+** (any 10.11.x; current builds compile against 10.11.11)
 - The **File Transformation** plugin (Dashboard → Plugins → Catalog → *File Transformation* → Install → restart Jellyfin)
-- A working remote subtitle provider in Jellyfin (e.g. OpenSubtitles) with valid credentials
+- At least one subtitle provider plugin with valid credentials — any provider Jellyfin supports works, since this plugin uses Jellyfin's provider-agnostic remote-subtitle API (e.g. the official **OpenSubtitles** plugin, tested with v24)
 
 ## Install
 
