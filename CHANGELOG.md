@@ -41,6 +41,9 @@ release tags (`vX.Y.Z`).
 - README install path is now catalog-first; the manual file-drop is collapsed
   into a fold-out "only if you can't reach GitHub" section.
 - Relicensed from MIT to The Unlicense (public domain).
+- Releases now build from the tagged commit instead of `main`, publish the
+  GitHub Release before updating the catalog manifest, and pin all workflow
+  actions to commit SHAs.
 
 ### Fixed
 
