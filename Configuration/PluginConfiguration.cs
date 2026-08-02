@@ -1,44 +1,43 @@
+using System;
+using System.Text.RegularExpressions;
 using MediaBrowser.Model.Plugins;
 
 namespace Jellyfin.Plugin.SeasonSubtitles.Configuration;
 
 public class PluginConfiguration : BasePluginConfiguration
 {
-    public PluginConfiguration()
+    private string _defaultLanguage = string.Empty;
+    private int _maxRetries = 2;
+    private int _requestDelayMs;
+    private int _topVariants = 1;
+
+    public string DefaultLanguage
     {
-        DefaultLanguage = string.Empty;
-        SkipExistingByDefault = true;
-        MaxRetries = 2;
-        RequestDelayMs = 0;
-        TopVariants = 1;
+        get => _defaultLanguage;
+        set
+        {
+            var v = (value ?? string.Empty).Trim().ToLowerInvariant();
+            _defaultLanguage = Regex.IsMatch(v, "^[a-z]{3}$") ? v : string.Empty;
+        }
     }
 
-    /// <summary>
-    /// Default 3-letter ISO language code (e.g. "eng"). Empty means fall back
-    /// to the user's Jellyfin subtitle preference, then "eng".
-    /// </summary>
-    public string DefaultLanguage { get; set; }
+    public bool SkipExistingByDefault { get; set; } = true;
 
-    /// <summary>
-    /// Whether the "skip existing" checkbox starts ticked.
-    /// </summary>
-    public bool SkipExistingByDefault { get; set; }
+    public int MaxRetries
+    {
+        get => _maxRetries;
+        set => _maxRetries = Math.Clamp(value, 0, 10);
+    }
 
-    /// <summary>
-    /// Max retry attempts per remote-subtitle call on transient failures.
-    /// </summary>
-    public int MaxRetries { get; set; }
+    public int RequestDelayMs
+    {
+        get => _requestDelayMs;
+        set => _requestDelayMs = Math.Clamp(value, 0, 10000);
+    }
 
-    /// <summary>
-    /// Delay in milliseconds between consecutive episode fetches, to ease
-    /// strict provider rate limits. 0 disables.
-    /// </summary>
-    public int RequestDelayMs { get; set; }
-
-    /// <summary>
-    /// How many of the top-ranked remote subtitles to download per episode.
-    /// Default 1. Range 1-5. Useful when the highest-ranked match isn't always
-    /// the best fit — pulling 3-5 variants raises the odds at least one syncs.
-    /// </summary>
-    public int TopVariants { get; set; }
+    public int TopVariants
+    {
+        get => _topVariants;
+        set => _topVariants = Math.Clamp(value, 1, 5);
+    }
 }

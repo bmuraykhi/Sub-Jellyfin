@@ -101,12 +101,20 @@
     <script type="text/javascript">
         (function () {
             var pluginUniqueId = 'a3c0e5c3-7d0d-4b91-9d1c-2e6f9b3a1c5d';
+            var busy = false;
 
             function getPage() {
                 return document.querySelector('#SeasonSubtitleDownloaderConfigPage');
             }
 
+            function setSubmitDisabled(page, disabled) {
+                var btn = page.querySelector('button[type=submit]');
+                if (btn) btn.disabled = disabled;
+            }
+
             function load(page) {
+                if (busy) return;
+                busy = true;
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
                     page.querySelector('#DefaultLanguage').value = (config.DefaultLanguage || '').toLowerCase();
@@ -114,31 +122,45 @@
                     page.querySelector('#MaxRetries').value = (config.MaxRetries != null ? config.MaxRetries : 2);
                     page.querySelector('#RequestDelayMs').value = (config.RequestDelayMs != null ? config.RequestDelayMs : 0);
                     page.querySelector('#TopVariants').value = (config.TopVariants != null && config.TopVariants >= 1 ? config.TopVariants : 1);
+                }).catch(function () {
+                    Dashboard.alert('Failed to load Season Subtitle Downloader settings.');
+                }).then(function () {
+                    busy = false;
                     Dashboard.hideLoadingMsg();
                 });
             }
 
             function save(page) {
+                if (busy) return;
+                busy = true;
                 Dashboard.showLoadingMsg();
+                setSubmitDisabled(page, true);
                 ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
                     var lang = (page.querySelector('#DefaultLanguage').value || '').trim().toLowerCase();
                     if (lang && !/^[a-z]{3}$/.test(lang)) {
-                        Dashboard.hideLoadingMsg();
                         Dashboard.alert('Default language must be a 3-letter ISO code (e.g. eng) or blank.');
-                        return;
+                        return null;
                     }
                     config.DefaultLanguage = lang;
                     config.SkipExistingByDefault = page.querySelector('#SkipExistingByDefault').checked;
                     var retries = parseInt(page.querySelector('#MaxRetries').value, 10);
-                    config.MaxRetries = isFinite(retries) && retries >= 0 ? retries : 2;
+                    config.MaxRetries = isFinite(retries) ? Math.min(10, Math.max(0, retries)) : 2;
                     var delay = parseInt(page.querySelector('#RequestDelayMs').value, 10);
-                    config.RequestDelayMs = isFinite(delay) && delay >= 0 ? delay : 0;
+                    config.RequestDelayMs = isFinite(delay) ? Math.min(10000, Math.max(0, delay)) : 0;
                     var variants = parseInt(page.querySelector('#TopVariants').value, 10);
                     config.TopVariants = isFinite(variants) ? Math.min(5, Math.max(1, variants)) : 1;
 
-                    ApiClient.updatePluginConfiguration(pluginUniqueId, config).then(function (result) {
+                    return ApiClient.updatePluginConfiguration(pluginUniqueId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);
+                        busy = false;
+                        load(page);
                     });
+                }).catch(function () {
+                    Dashboard.alert('Failed to save settings.');
+                }).then(function () {
+                    busy = false;
+                    setSubmitDisabled(page, false);
+                    Dashboard.hideLoadingMsg();
                 });
             }
 
@@ -149,8 +171,6 @@
                 save(page);
                 return false;
             });
-            // Load once on script execution as well — pageshow may have already
-            // fired by the time the embedded <script> runs.
             load(page);
         })();
     </script>

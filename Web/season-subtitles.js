@@ -37,6 +37,7 @@
         dlgScopeSeason: (n) => `${n} episode${n === 1 ? '' : 's'} in this season.`,
         dlgScopeSeries: (n, s) => `${n} episode${n === 1 ? '' : 's'} across ${s} season${s === 1 ? '' : 's'}.`,
         dlgLangLabel: 'Language (3-letter ISO, e.g. eng, fra, heb)',
+        dlgLangInvalid: 'Enter a 3-letter ISO 639-2 code, e.g. eng',
         dlgSkipLabel: 'Skip episodes that already have a subtitle in this language',
         dlgVariantsLabel: 'Variants per episode (1-5)',
         dlgVariantsHint: 'Pulls the top-N highest-ranked subtitles per episode. Useful when the top match often desyncs.',
@@ -127,9 +128,10 @@
 
     function defaultLanguage(config, user) {
         const cfgLang = (config && config.DefaultLanguage || '').trim().toLowerCase();
-        if (cfgLang) return cfgLang;
+        if (/^[a-z]{3}$/.test(cfgLang)) return cfgLang;
         const userPref = user && user.Configuration && user.Configuration.SubtitleLanguagePreference;
-        if (typeof userPref === 'string' && userPref.trim()) return userPref.trim().toLowerCase();
+        const userLang = typeof userPref === 'string' ? userPref.trim().toLowerCase() : '';
+        if (/^[a-z]{3}$/.test(userLang)) return userLang;
         return 'eng';
     }
 
@@ -301,9 +303,18 @@
             );
             const langInput = el('input', {
                 id: 'season-subs-lang', type: 'text', maxLength: 3, autocomplete: 'off',
-                style: 'width:100%; padding:6px 8px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; margin-bottom:14px; box-sizing:border-box;'
+                style: 'width:100%; padding:6px 8px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; margin-bottom:6px; box-sizing:border-box;'
             });
             langInput.value = defaultLang;
+            const langError = el(
+                'div',
+                { style: 'display:none; color:#e57373; font-size:12px; margin-bottom:8px;' },
+                STR.dlgLangInvalid
+            );
+            langInput.addEventListener('input', () => {
+                langError.style.display = 'none';
+                langInput.removeAttribute('aria-invalid');
+            });
 
             const skipRow = el('label', { style: 'display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:14px;' });
             const skipCb = el('input', { type: 'checkbox' });
@@ -338,7 +349,15 @@
             }
             function submit() {
                 const lang = (langInput.value || '').trim().toLowerCase();
-                if (!/^[a-z]{3}$/.test(lang)) { langInput.focus(); langInput.select(); return; }
+                if (!/^[a-z]{3}$/.test(lang)) {
+                    langError.style.display = 'block';
+                    langInput.setAttribute('aria-invalid', 'true');
+                    langInput.focus();
+                    langInput.select();
+                    return;
+                }
+                langError.style.display = 'none';
+                langInput.removeAttribute('aria-invalid');
                 const v = parseInt(variantsInput.value, 10);
                 const topVariants = isFinite(v) ? Math.min(5, Math.max(1, v)) : 1;
                 close({ language: lang, skipExisting: skipCb.checked, topVariants });
@@ -355,7 +374,7 @@
 
             buttons.appendChild(cancelBtn);
             buttons.appendChild(startBtn);
-            box.append(title, sub, langLabel, langInput, skipRow, variantsLabel, variantsInput, variantsHint, buttons);
+            box.append(title, sub, langLabel, langInput, langError, skipRow, variantsLabel, variantsInput, variantsHint, buttons);
             overlay.appendChild(box);
             document.body.appendChild(overlay);
             setTimeout(() => { langInput.focus(); langInput.select(); }, 0);
@@ -712,8 +731,8 @@
                     language: opts.language,
                     skipExisting: opts.skipExisting,
                     topVariants: opts.topVariants,
-                    maxRetries: typeof config.MaxRetries === 'number' && config.MaxRetries >= 0 ? config.MaxRetries : 2,
-                    requestDelayMs: typeof config.RequestDelayMs === 'number' && config.RequestDelayMs >= 0 ? config.RequestDelayMs : 0
+                    maxRetries: typeof config.MaxRetries === 'number' && config.MaxRetries >= 0 ? Math.min(10, config.MaxRetries) : 2,
+                    requestDelayMs: typeof config.RequestDelayMs === 'number' && config.RequestDelayMs >= 0 ? Math.min(10000, config.RequestDelayMs) : 0
                 };
                 await startRun({ ctx, opts: fullOpts, episodes });
             } catch (err) {

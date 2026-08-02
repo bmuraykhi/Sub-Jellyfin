@@ -61,6 +61,14 @@ release tags (`vX.Y.Z`).
   of waiting out the full sleep (which could be minutes at high retry counts),
   and the progress bar no longer snaps to 100% on cancel or reports an
   episode as done before it's actually processed.
+- Plugin settings (`MaxRetries`, `RequestDelayMs`, `TopVariants`,
+  `DefaultLanguage`) are now clamped server-side on every write and XML load,
+  not just in the browser, closing the path where an out-of-range value sent
+  directly through the REST API degenerated the retry/delay backoff into an
+  unthrottled hammer or silently broke the Start button. The admin config
+  page no longer hangs behind a permanent spinner on a failed load/save, and
+  the options dialog now shows a visible message instead of silently
+  no-opping when the language code is invalid.
 
 ## [1.0.1.1] – 2026-05-07
 
