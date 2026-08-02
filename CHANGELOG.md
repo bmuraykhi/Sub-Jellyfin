@@ -48,6 +48,13 @@ release tags (`vX.Y.Z`).
   reuses a stale button's click handler after navigating between seasons on
   a DOM node Jellyfin recycled, and button injection can no longer be
   starved indefinitely on pages that mutate faster than the debounce window.
+- Progress dialog no longer gets permanently stuck: a failed "Retry Failed"
+  re-fetch (or any uncaught error starting a run) now lands in a closable
+  error state instead of leaving Cancel/Retry wired to nothing. Cancel now
+  interrupts retry backoff and the inter-episode delay within ~250 ms instead
+  of waiting out the full sleep (which could be minutes at high retry counts),
+  and the progress bar no longer snaps to 100% on cancel or reports an
+  episode as done before it's actually processed.
 
 ## [1.0.1.1] – 2026-05-07
 

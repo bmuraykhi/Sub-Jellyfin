@@ -48,6 +48,8 @@
         progTitleRetry: 'Retrying failed',
         progTitleDone: 'Done',
         progTitleCancelled: 'Cancelled',
+        progTitleError: 'Error',
+        retryNoMatch: 'No failed episodes matched — they may have been removed from the library',
         countDownloaded: (n) => `✓ Downloaded: ${n}`,
         countSkipped: (n) => `⤼ Skipped: ${n}`,
         countMissing: (n) => `⌀ No match: ${n}`,
@@ -79,8 +81,16 @@
         };
     }
 
-    function delay(ms) {
-        return new Promise(r => setTimeout(r, ms));
+    function delay(ms, isCancelled) {
+        if (!isCancelled) return new Promise(r => setTimeout(r, ms));
+        return new Promise(r => {
+            const started = Date.now();
+            const tick = () => {
+                if (isCancelled() || Date.now() - started >= ms) { r(); return; }
+                setTimeout(tick, Math.min(250, ms - (Date.now() - started)));
+            };
+            tick();
+        });
     }
 
     function escHtml(s) {
@@ -203,9 +213,9 @@
             } catch (e) {
                 if (isCancelled && isCancelled()) throw new Error('cancelled');
                 if (attempt >= maxRetries || !isRetryable(e)) throw e;
-                const wait = baseDelayMs * Math.pow(2, attempt);
+                const wait = Math.min(30000, baseDelayMs * Math.pow(2, attempt));
                 attempt++;
-                await delay(wait);
+                await delay(wait, isCancelled);
             }
         }
     }
@@ -397,7 +407,13 @@
             cancelBtn.disabled = true;
             cancelBtn.textContent = STR.cancelInProgress;
         };
-        retryBtn.onclick = () => { if (onRetry) onRetry(); };
+        retryBtn.onclick = () => {
+            if (!onRetry) return;
+            onRetry().catch(e => {
+                console.error(LOG, 'retry round failed', e);
+                fail(describeErr(e));
+            });
+        };
         closeBtn.onclick = () => close();
 
         function onKey(e) {
@@ -462,6 +478,15 @@
             }
         }
 
+        function fail(message) {
+            title.textContent = STR.progTitleError;
+            current.textContent = message || '';
+            cancelBtn.style.display = 'none';
+            retryBtn.style.display = 'none';
+            closeBtn.style.display = '';
+            onRetry = null;
+        }
+
         function startRound(roundTitle) {
             title.textContent = roundTitle || STR.progTitle;
             cancelBtn.style.display = '';
@@ -476,7 +501,7 @@
             failBox.innerHTML = '';
         }
 
-        return { cancelToken, setCounts, setProgress, renderFailures, finish, close, startRound };
+        return { cancelToken, setCounts, setProgress, renderFailures, finish, fail, close, startRound };
     }
 
     // ---------- batch runner ----------
@@ -537,20 +562,27 @@
                 failed.push({ episodeId: ep.Id, label, reason: describeErr(e) });
             }
             progress.setCounts(counts);
+            progress.setProgress(i + 1, episodes.length, label);
 
             if (opts.requestDelayMs > 0 && i < episodes.length - 1 && !isCancelled()) {
-                await delay(opts.requestDelayMs);
+                await delay(opts.requestDelayMs, isCancelled);
             }
         }
 
-        progress.setProgress(episodes.length, episodes.length, '');
+        if (!isCancelled()) {
+            progress.setProgress(episodes.length, episodes.length, '');
+        }
         progress.renderFailures(failed, missing);
 
         return { counts, failed, missing, cancelled: isCancelled() };
     }
 
-    async function runRound(progress, opts, fetchEpsForRound) {
+    async function runRound(progress, opts, fetchEpsForRound, roundOpts) {
         const eps = await fetchEpsForRound();
+        if (roundOpts && roundOpts.isRetry && eps.length === 0) {
+            progress.fail(STR.retryNoMatch);
+            return { counts: { downloaded: 0, skipped: 0, missing: 0, failed: 0 }, failed: [], missing: [], cancelled: false };
+        }
         const result = await runBatch(progress, eps, opts);
         const stillFailing = !result.cancelled && result.failed.length > 0;
         progress.finish({
@@ -563,7 +595,7 @@
                     await runRound(progress, opts, async () => {
                         const all = await fetchEpsForRound();
                         return all.filter(ep => failedIds.has(ep.Id));
-                    });
+                    }, { isRetry: true });
                 }
                 : null
         });
@@ -573,12 +605,18 @@
     async function startRun({ ctx, opts, episodes }) {
         const progress = openProgressDialog();
         let initial = episodes;
-        const result = await runRound(progress, opts, async () => {
-            if (initial) { const e = initial; initial = null; return e; }
-            return fetchEpisodes(ctx.seriesId, ctx.seasonId);
-        });
-        const verb = result.cancelled ? STR.toastVerbCancelled : STR.toastVerbDone;
-        toast(STR.toastSummary(verb, result.counts), 5000);
+        try {
+            const result = await runRound(progress, opts, async () => {
+                if (initial) { const e = initial; initial = null; return e; }
+                return fetchEpisodes(ctx.seriesId, ctx.seasonId);
+            });
+            const verb = result.cancelled ? STR.toastVerbCancelled : STR.toastVerbDone;
+            toast(STR.toastSummary(verb, result.counts), 5000);
+        } catch (err) {
+            console.error(LOG, 'run failed', err);
+            progress.fail(describeErr(err));
+            toast(STR.toastRunFailed, 3000);
+        }
     }
 
     // ---------- button injection ----------
