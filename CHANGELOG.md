@@ -41,6 +41,14 @@ release tags (`vX.Y.Z`).
 - README install path is now catalog-first; the manual file-drop is collapsed
   into a fold-out "only if you can't reach GitHub" section.
 
+### Fixed
+
+- Detail-page watcher no longer re-issues `getItem` every second forever on
+  pages that never get a button (Movie, Episode, Person). It also no longer
+  reuses a stale button's click handler after navigating between seasons on
+  a DOM node Jellyfin recycled, and button injection can no longer be
+  starved indefinitely on pages that mutate faster than the debounce window.
+
 ## [1.0.1.1] – 2026-05-07
 
 ### Fixed
