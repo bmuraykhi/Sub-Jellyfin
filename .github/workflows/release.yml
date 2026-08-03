@@ -76,7 +76,8 @@ jobs:
           mkdir -p artifacts
           cp publish/Jellyfin.Plugin.SeasonSubtitles.dll artifacts/
           cp meta.json artifacts/
-          (cd artifacts && zip -q season-subtitle-downloader.zip Jellyfin.Plugin.SeasonSubtitles.dll meta.json)
+          cp assets/icon.png artifacts/
+          (cd artifacts && zip -q season-subtitle-downloader.zip Jellyfin.Plugin.SeasonSubtitles.dll meta.json icon.png)
           MD5=$(md5sum artifacts/season-subtitle-downloader.zip | awk '{print toupper($1)}')
           echo "md5=$MD5" >> "$GITHUB_OUTPUT"
           echo "MD5: $MD5"

@@ -12,8 +12,10 @@ compares internally.
 
 ### Added
 
-- Catalog tile now shows the plugin icon (`imageUrl` in `manifest.json`
-  pointing at the already-committed `assets/icon.png`).
+- Plugin icon now shows in both places Jellyfin renders one: the catalog tile
+  (`imageUrl` in `manifest.json`) and the installed-plugin tile under
+  Dashboard → Plugins → My Plugins (`imagePath` in `meta.json`, with
+  `icon.png` shipped inside the release zip).
 - Unit tests (IndexHtmlPatch, cross-file invariants) and ESLint gate in CI.
 
 ### Changed
