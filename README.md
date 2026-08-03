@@ -1,108 +1,143 @@
-# Season Subtitle Downloader (Jellyfin plugin)
+<div align="center">
+
+<img src="assets/icon.png" width="96" alt="">
+
+# Season Subtitle Downloader
+
+**One button. Every episode.** Batch-download subtitles for a whole season — or
+a whole series — from Jellyfin's web client.
 
 [![Latest release](https://img.shields.io/github/v/release/bmuraykhi/Sub-Jellyfin?label=release&color=AA5CC3)](https://github.com/bmuraykhi/Sub-Jellyfin/releases/latest)
 [![License](https://img.shields.io/github/license/bmuraykhi/Sub-Jellyfin?color=blue)](LICENSE)
 [![CI](https://github.com/bmuraykhi/Sub-Jellyfin/actions/workflows/ci.yml/badge.svg)](https://github.com/bmuraykhi/Sub-Jellyfin/actions/workflows/ci.yml)
-[![Release workflow](https://github.com/bmuraykhi/Sub-Jellyfin/actions/workflows/release.yml/badge.svg)](https://github.com/bmuraykhi/Sub-Jellyfin/actions/workflows/release.yml)
 
-Adds a **Download Subs** button to season *and* series pages in Jellyfin's web
-client. Click it to batch-download subtitles for every episode (one season or
-the whole show), using whichever subtitle providers (e.g. OpenSubtitles) you
-already have configured.
+</div>
 
-Small and self-contained: a ~25 KB DLL plus a `meta.json`. It doesn't modify
-`jellyfin-web` — it injects a tiny script into `index.html` via the
+Adds a **Download Subs** button to season *and* series pages. Click it, pick a
+language, and it walks every episode using whichever subtitle providers you
+already have configured — no per-episode clicking, no shell access.
+
+It doesn't modify `jellyfin-web`. A 64 KB DLL injects a small script into
+`index.html` through the
 [File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation)
-plugin.
+plugin, so it survives web-client updates.
 
 ## Requirements
 
-- Jellyfin **10.11+** (any 10.11.x; current builds compile against 10.11.11)
-- The **File Transformation** plugin (Dashboard → Plugins → Catalog → *File Transformation* → Install → restart Jellyfin)
-- At least one subtitle provider plugin with valid credentials — any provider Jellyfin supports works, since this plugin uses Jellyfin's provider-agnostic remote-subtitle API (e.g. the official **OpenSubtitles** plugin, tested with v24)
+- Jellyfin **10.11+** (any 10.11.x)
+- The **File Transformation** plugin — Dashboard → Plugins → Catalog → *File Transformation* → Install → restart
+- At least one subtitle provider with working credentials. Any provider Jellyfin
+  supports works, since this uses Jellyfin's provider-agnostic remote-subtitle
+  API (e.g. the official **OpenSubtitles** plugin, tested with v24)
 
 ## Install
 
-One-time setup. After it's done, install/update/uninstall happens entirely
-through Jellyfin's web UI — no shell access, no file copying, and new versions
-arrive as one-click upgrades from the catalog.
+One-time setup — after this, updates arrive as one-click upgrades from the catalog.
 
-1. Dashboard → **Plugins** → **Repositories** → **+** (add).
-2. Repository name: `Season Subtitle Downloader`.
-3. Repository URL:
+1. Dashboard → **Plugins** → **Repositories** → **+**
+2. Name: `Season Subtitle Downloader`
+3. URL:
 
    ```
    https://raw.githubusercontent.com/bmuraykhi/Sub-Jellyfin/main/manifest.json
    ```
 
-4. Save.
-5. Dashboard → **Plugins** → **Catalog**. Find **Season Subtitle Downloader** under *General* and click **Install**.
-6. Restart Jellyfin.
-7. Hard-refresh the web UI (**Ctrl+Shift+R** / **Cmd+Shift+R**).
+4. Save, then Dashboard → **Plugins** → **Catalog** → **Season Subtitle
+   Downloader** (under *General*) → **Install**
+5. Restart Jellyfin, then hard-refresh the browser (**Ctrl/Cmd+Shift+R**)
 
-## Verify
+You're set when My Plugins shows it **Active** and a **Download Subs** button
+appears on any season page. If it doesn't, see [Troubleshooting](#troubleshooting).
 
-- Dashboard → Plugins → My Plugins shows **Season Subtitle Downloader** as **Active**.
-- Dashboard → Logs contains: `Season Subtitle Downloader transformation registered.`
-- Open any TV series → click into a Season. A **Download Subs** button appears in the action row.
-- If the button never appears, check Logs for `File Transformation plugin not found` — install File Transformation and restart Jellyfin.
+## Using it
 
-## Use
+1. Open a **season** page (that season only) or a **series** page (every season).
+2. Click **Download Subs**.
+3. Pick the language, whether to skip episodes that already have one, and how
+   many variants to pull per episode.
+4. **Start.** Progress shows live counts — downloaded, skipped, no match, failed.
+   **Cancel** (or Esc) stops between episodes.
+5. When it finishes, any failures are listed per episode with the reason.
+   **Retry Failed** re-runs just those, as many times as you need.
 
-1. Click **Download Subs** on a season page.
-2. Pick a 3-letter ISO language code (default `eng`, or your user's preferred subtitle language if set).
-3. Optionally toggle *Skip episodes that already have a subtitle in this language*.
-4. Click **Start**. Progress shows live (e.g. `3/24 S1E3`). A toast at the end summarizes how many were downloaded, skipped, missed, or failed.
+Episodes are processed one at a time. If your provider still rate-limits you,
+raise *Delay between episodes* below — and note that pulling more than one
+variant multiplies provider calls per episode.
 
-Subtitles are fetched one episode at a time so providers like OpenSubtitles
-don't rate-limit you.
+## Configuration
 
-<details>
-<summary><b>Manual install</b> — only if you can't reach GitHub from Jellyfin or want a specific older build</summary>
+Dashboard → Plugins → **Season Subtitle Downloader**. These are the defaults the
+dialog opens with; language, skip-existing, and variants can be overridden per run.
 
-&nbsp;
+| Setting | Default | Range | Notes |
+|---|---|---|---|
+| Default subtitle language | *blank* | 3-letter ISO | Blank falls back to the user's Jellyfin subtitle preference, then `eng` |
+| Skip episodes that already have a subtitle | on | — | Matches on the chosen language |
+| Retry attempts per episode | `2` | 0–10 | Retries network errors, 429 and 5xx with backoff. 4xx never retries, so a bad language code fails fast |
+| Delay between episodes | `0` ms | 0–10000 | Pause between episodes for strict providers |
+| Variants per episode | `1` | 1–5 | Pulls the top-N ranked subtitles. Useful when the best match desyncs — costs one provider call each |
 
-Drop the files in by hand. You'll have to repeat this for every update.
+## Troubleshooting
 
-1. Download the latest release zip from
-   <https://github.com/bmuraykhi/Sub-Jellyfin/releases/latest>
-   and unzip it. You'll get `Jellyfin.Plugin.SeasonSubtitles.dll`, `meta.json`,
-   and `icon.png`.
-2. Copy all three into a folder named `Season Subtitle Downloader_<version>`
-   (e.g. `Season Subtitle Downloader_1.0.2.0`) inside Jellyfin's plugins
-   directory — keep `icon.png` next to the other two or My Plugins shows a
-   blank tile:
+**No Download Subs button.** Almost always File Transformation. Check Dashboard →
+Logs: `Season Subtitle Downloader transformation registered.` means it's wired up
+correctly. `File Transformation plugin not found` means install that plugin and
+restart Jellyfin. If the log looks right, hard-refresh the browser.
 
-   | OS / install     | Plugins path                                                  |
-   |------------------|---------------------------------------------------------------|
-   | Linux (systemd)  | `/var/lib/jellyfin/plugins/`                                  |
-   | Docker           | `/config/plugins/` *(inside the container)*                   |
-   | Windows          | `%ProgramData%\Jellyfin\Server\plugins\`                      |
-   | macOS            | `~/.local/share/jellyfin/plugins/`                            |
+**Everything reports "no match".** Check the language code — it must be 3-letter
+ISO 639-2 (`eng`, `fra`, `heb`), not 2-letter (`en`). Then confirm your provider
+plugin has valid credentials and isn't out of quota.
 
-3. Make sure Jellyfin can read the files (e.g. `chown jellyfin:jellyfin` on
-   Linux, or match `PUID:PGID` for Docker), then restart Jellyfin.
-
-</details>
+**Blank tile in My Plugins.** Fixed in 1.0.2.0 — update from the catalog.
 
 ## Uninstall
 
-From the catalog: Dashboard → Plugins → My Plugins → Season Subtitle Downloader → **Uninstall**, then restart Jellyfin.
+Dashboard → Plugins → My Plugins → **Season Subtitle Downloader** → **Uninstall**,
+then restart. If you installed by hand, delete the
+`Season Subtitle Downloader_<version>` folder from the plugins directory instead.
 
-If you installed manually: delete the `Season Subtitle Downloader_<version>` folder from Jellyfin's plugins directory and restart.
+<details>
+<summary><b>Manual install</b> — only if Jellyfin can't reach GitHub, or you want a specific older build</summary>
 
-## Build from source
+&nbsp;
+
+You'll have to repeat this for every update.
+
+1. Download and unzip the latest release from
+   <https://github.com/bmuraykhi/Sub-Jellyfin/releases/latest>. You'll get
+   `Jellyfin.Plugin.SeasonSubtitles.dll`, `meta.json`, and `icon.png`.
+2. Copy **all three** into a folder named `Season Subtitle Downloader_<version>`
+   (e.g. `Season Subtitle Downloader_1.0.2.0`) in Jellyfin's plugins directory.
+   Keep `icon.png` alongside the others or My Plugins shows a blank tile.
+
+   | OS / install    | Plugins path                             |
+   |-----------------|------------------------------------------|
+   | Linux (systemd) | `/var/lib/jellyfin/plugins/`             |
+   | Docker          | `/config/plugins/` *(inside the container)* |
+   | Windows         | `%ProgramData%\Jellyfin\Server\plugins\` |
+   | macOS           | `~/.local/share/jellyfin/plugins/`       |
+
+3. Make sure Jellyfin can read them (`chown jellyfin:jellyfin` on Linux, or match
+   `PUID:PGID` on Docker), then restart.
+
+</details>
+
+<details>
+<summary><b>Build from source</b></summary>
+
+&nbsp;
 
 Requires the .NET 9 SDK.
 
 ```bash
 dotnet publish Jellyfin.Plugin.SeasonSubtitles.csproj -c Release -o publish
-# DLL → publish/Jellyfin.Plugin.SeasonSubtitles.dll
-# meta.json is in the repo root; icon.png is in assets/
 ```
 
-For a local install, copy all three into the plugin folder described under
-**Manual install** above.
+The DLL lands in `publish/`; `meta.json` is in the repo root and `icon.png` in
+`assets/`. Copy all three into a plugin folder as described under **Manual
+install** above.
+
+</details>
 
 ## License
 
