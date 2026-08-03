@@ -2,46 +2,22 @@
 
 All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
-follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for
-release tags (`vX.Y.Z`).
+follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html), published
+as 4-part release tags (`vX.Y.Z.B`) to match the version format Jellyfin
+compares internally.
 
 ## [Unreleased]
+
+## [1.0.2.0] – 2026-08-03
 
 ### Added
 
 - Catalog tile now shows the plugin icon (`imageUrl` in `manifest.json`
   pointing at the already-committed `assets/icon.png`).
-- **Plugin admin configuration page** in Dashboard → Plugins → My Plugins.
-  Settings: default subtitle language, skip-existing default, max retries per
-  episode, and an inter-episode delay for strict providers.
-- **Cancel button** during a run. Esc also cancels.
-- **Per-episode failure visibility** — after a run, the dialog lists every
-  failed episode with its reason (HTTP status / error text) and every "no
-  match" episode by name.
-- **Retry Failed** button on the results panel. Re-runs only the episodes
-  that errored, fetches fresh metadata first, can be repeated until clean.
-- **Series-level Download Subs** button. On a TV series detail page, one click
-  fans out across every season in the series; the dialog shows the total
-  episode count and how many seasons it spans.
-- ARIA labels on injected buttons and Esc / Enter keyboard support on dialogs.
-- **Top-N variants per episode** — download the 1-5 highest-ranked subtitles
-  per episode in one pass instead of just the top one, giving you backup
-  candidates when the highest-ranked match doesn't sync. Configurable both as
-  a plugin-wide default and per-run from the options dialog. Default stays at
-  1 so existing behavior is unchanged.
 - Unit tests (IndexHtmlPatch, cross-file invariants) and ESLint gate in CI.
 
 ### Changed
 
-- Progress now shows in a dedicated modal dialog with a progress bar, current
-  episode label, and live counts (was inline button text).
-- Remote-search and download calls retry with exponential backoff on transient
-  failures (network errors, 429, 5xx). Bails immediately on 4xx so bad
-  language codes or missing providers don't waste retries.
-- All user-facing strings centralized in a single `STR` object so a future
-  locale layer can swap them in one place.
-- README install path is now catalog-first; the manual file-drop is collapsed
-  into a fold-out "only if you can't reach GitHub" section.
 - Relicensed from MIT to The Unlicense (public domain).
 - Releases now build from the tagged commit instead of `main`, publish the
   GitHub Release before updating the catalog manifest, and pin all workflow
@@ -79,6 +55,59 @@ release tags (`vX.Y.Z`).
   page no longer hangs behind a permanent spinner on a failed load/save, and
   the options dialog now shows a visible message instead of silently
   no-opping when the language code is invalid.
+
+## [1.0.1.5] – 2026-06-06
+
+### Added
+
+- Debug diagnostics for the injected script, plus further Download Subs
+  button injection reliability improvements.
+
+## [1.0.1.4] – 2026-06-06
+
+### Fixed
+
+- Improved Download Subs button injection reliability on detail pages.
+
+## [1.0.1.3] – 2026-05-14
+
+### Added
+
+- **Top-N variants per episode** — download the 1-5 highest-ranked subtitles
+  per episode in one pass instead of just the top one, giving you backup
+  candidates when the highest-ranked match doesn't sync. Configurable both as
+  a plugin-wide default and per-run from the options dialog. Default stays at
+  1 so existing behavior is unchanged.
+
+## [1.0.1.2] – 2026-05-09
+
+### Added
+
+- **Plugin admin configuration page** in Dashboard → Plugins → My Plugins.
+  Settings: default subtitle language, skip-existing default, max retries per
+  episode, and an inter-episode delay for strict providers.
+- **Cancel button** during a run. Esc also cancels.
+- **Per-episode failure visibility** — after a run, the dialog lists every
+  failed episode with its reason (HTTP status / error text) and every "no
+  match" episode by name.
+- **Retry Failed** button on the results panel. Re-runs only the episodes
+  that errored, fetches fresh metadata first, can be repeated until clean.
+- **Series-level Download Subs** button. On a TV series detail page, one click
+  fans out across every season in the series; the dialog shows the total
+  episode count and how many seasons it spans.
+- ARIA labels on injected buttons and Esc / Enter keyboard support on dialogs.
+
+### Changed
+
+- Progress now shows in a dedicated modal dialog with a progress bar, current
+  episode label, and live counts (was inline button text).
+- Remote-search and download calls retry with exponential backoff on transient
+  failures (network errors, 429, 5xx). Bails immediately on 4xx so bad
+  language codes or missing providers don't waste retries.
+- All user-facing strings centralized in a single `STR` object so a future
+  locale layer can swap them in one place.
+- README install path is now catalog-first; the manual file-drop is collapsed
+  into a fold-out "only if you can't reach GitHub" section.
 
 ## [1.0.1.1] – 2026-05-07
 
