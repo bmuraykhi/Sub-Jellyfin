@@ -62,13 +62,16 @@ don't rate-limit you.
 
 &nbsp;
 
-Drop the two files in by hand. You'll have to repeat this for every update.
+Drop the files in by hand. You'll have to repeat this for every update.
 
 1. Download the latest release zip from
    <https://github.com/bmuraykhi/Sub-Jellyfin/releases/latest>
-   and unzip it. You'll get `Jellyfin.Plugin.SeasonSubtitles.dll` and `meta.json`.
-2. Copy both into a folder named `Season Subtitle Downloader_<version>` (e.g.
-   `Season Subtitle Downloader_1.0.1`) inside Jellyfin's plugins directory:
+   and unzip it. You'll get `Jellyfin.Plugin.SeasonSubtitles.dll`, `meta.json`,
+   and `icon.png`.
+2. Copy all three into a folder named `Season Subtitle Downloader_<version>`
+   (e.g. `Season Subtitle Downloader_1.0.2.0`) inside Jellyfin's plugins
+   directory — keep `icon.png` next to the other two or My Plugins shows a
+   blank tile:
 
    | OS / install     | Plugins path                                                  |
    |------------------|---------------------------------------------------------------|
@@ -95,8 +98,11 @@ Requires the .NET 9 SDK.
 ```bash
 dotnet publish Jellyfin.Plugin.SeasonSubtitles.csproj -c Release -o publish
 # DLL → publish/Jellyfin.Plugin.SeasonSubtitles.dll
-# meta.json is in the repo root
+# meta.json is in the repo root; icon.png is in assets/
 ```
+
+For a local install, copy all three into the plugin folder described under
+**Manual install** above.
 
 ## License
 
