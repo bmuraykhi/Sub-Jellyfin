@@ -4,6 +4,7 @@
     "guid": "a3c0e5c3-7d0d-4b91-9d1c-2e6f9b3a1c5d",
     "description": "Adds a 'Download Subs' button to season detail pages that batch-downloads subtitles for every episode in the season.",
     "overview": "One-click subtitle download for an entire season. Requires the File Transformation plugin.",
+    "imageUrl": "https://raw.githubusercontent.com/bmuraykhi/Sub-Jellyfin/main/assets/icon.png",
     "owner": "Bandar",
     "category": "General",
     "versions": [

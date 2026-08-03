@@ -9,6 +9,8 @@ release tags (`vX.Y.Z`).
 
 ### Added
 
+- Catalog tile now shows the plugin icon (`imageUrl` in `manifest.json`
+  pointing at the already-committed `assets/icon.png`).
 - **Plugin admin configuration page** in Dashboard → Plugins → My Plugins.
   Settings: default subtitle language, skip-existing default, max retries per
   episode, and an inter-episode delay for strict providers.
@@ -49,6 +51,14 @@ release tags (`vX.Y.Z`).
 
 ### Fixed
 
+- Startup task no longer logs "transformation registered" when registration
+  actually failed silently (missing/renamed File Transformation API), and it
+  no longer appears as a user-disableable row in Dashboard → Scheduled Tasks.
+  `index.html` injection no longer leaks two bytes of whitespace into the page
+  on every File Transformation re-render, no longer mishandles an orphaned
+  open marker by swallowing unrelated markup on the next render, and now logs
+  a warning instead of silently no-opping on a missing `</body>` tag or an
+  empty embedded script resource.
 - Detail-page watcher no longer re-issues `getItem` every second forever on
   pages that never get a button (Movie, Episode, Person). It also no longer
   reuses a stale button's click handler after navigating between seasons on

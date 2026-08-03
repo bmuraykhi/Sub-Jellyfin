@@ -45,6 +45,7 @@ arrive as one-click upgrades from the catalog.
 - Dashboard → Plugins → My Plugins shows **Season Subtitle Downloader** as **Active**.
 - Dashboard → Logs contains: `Season Subtitle Downloader transformation registered.`
 - Open any TV series → click into a Season. A **Download Subs** button appears in the action row.
+- If the button never appears, check Logs for `File Transformation plugin not found` — install File Transformation and restart Jellyfin.
 
 ## Use
 

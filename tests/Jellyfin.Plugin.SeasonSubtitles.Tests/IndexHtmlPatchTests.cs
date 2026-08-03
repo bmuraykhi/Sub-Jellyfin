@@ -61,15 +61,42 @@ public class IndexHtmlPatchTests
     }
 
     [Fact]
-    public void Apply_IsStructurallyIdempotentAcrossRepeatedRenders()
+    public void Apply_IsByteIdempotentAcrossRepeatedRenders()
     {
         const string input = "<html><body><p>x</p></body></html>";
         var once = IndexHtmlPatch.Apply(P(input));
         var twice = IndexHtmlPatch.Apply(P(once));
 
+        Assert.Equal(once, twice);
         Assert.Equal(1, Count(twice, "<!-- season-subtitles-inject -->"));
         Assert.Equal(1, Count(twice, "<!-- /season-subtitles-inject -->"));
         Assert.Equal(1, Count(twice, "<script"));
+    }
+
+    [Fact]
+    public void Apply_RemovesOrphanedOpenMarkerWithoutSwallowingContent()
+    {
+        const string input = "<html><body>A<!-- season-subtitles-inject -->B</body></html>";
+        var output = IndexHtmlPatch.Apply(P(input));
+
+        Assert.Contains("A", output);
+        Assert.Contains("B", output);
+        Assert.Equal(1, Count(output, "<!-- season-subtitles-inject -->"));
+        Assert.Equal(1, Count(output, "<!-- /season-subtitles-inject -->"));
+        Assert.Equal(1, Count(output, "<script"));
+    }
+
+    [Fact]
+    public void Apply_CollapsesStackedStalePairs()
+    {
+        const string input = "<html><body><!-- season-subtitles-inject -->old1<!-- /season-subtitles-inject --><!-- season-subtitles-inject -->old2<!-- /season-subtitles-inject --></body></html>";
+        var output = IndexHtmlPatch.Apply(P(input));
+
+        Assert.DoesNotContain("old1", output);
+        Assert.DoesNotContain("old2", output);
+        Assert.Equal(1, Count(output, "<!-- season-subtitles-inject -->"));
+        Assert.Equal(1, Count(output, "<!-- /season-subtitles-inject -->"));
+        Assert.Equal(1, Count(output, "<script"));
     }
 
     [Fact]
