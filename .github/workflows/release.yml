@@ -82,6 +82,24 @@ jobs:
           echo "md5=$MD5" >> "$GITHUB_OUTPUT"
           echo "MD5: $MD5"
 
+      - name: Extract release notes from CHANGELOG
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          awk -v hdr="## [$VERSION]" '
+            index($0, hdr) == 1 { found = 1; next }
+            found && /^## \[/    { exit }
+            found                { print }
+          ' CHANGELOG.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "CHANGELOG.md has no '## [$VERSION]' section." >&2
+            echo "Move the '## [Unreleased]' entries into a '## [$VERSION]' section and re-tag." >&2
+            exit 1
+          fi
+          echo "Release notes:"
+          cat release-notes.md
+
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
@@ -92,6 +110,7 @@ jobs:
             artifacts/Jellyfin.Plugin.SeasonSubtitles.dll
             artifacts/meta.json
             artifacts/season-subtitle-downloader.zip
+          body_path: release-notes.md
           generate_release_notes: true
 
       - name: Checkout main
