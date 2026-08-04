@@ -1,12 +1,15 @@
 {
   "private": true,
   "devDependencies": {
-    "eslint": "^9.9.0",
     "@eslint/js": "^9.9.0",
+    "eslint": "^9.9.0",
     "eslint-plugin-html": "^8.1.1",
-    "globals": "^15.9.0"
+    "globals": "^15.9.0",
+    "jsdom": "^30.0.1",
+    "vitest": "^4.1.10"
   },
   "scripts": {
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run"
   }
 }

@@ -898,7 +898,13 @@
                 apiClientReady: typeof ApiClient !== 'undefined' && !!(ApiClient.getCurrentUserId && ApiClient.getCurrentUserId())
             };
         },
-        forceInject() { evaluateDetailsPage(); return 'queued'; }
+        forceInject() { evaluateDetailsPage(); return 'queued'; },
+        _internals: {
+            STR, debounce, delay, escHtml, defaultLanguage, alreadyHasSubtitle,
+            epLabel, distinctSeasonsCount, errStatus, isRetryable, describeErr,
+            withRetry, processEpisode, runBatch, openOptionsDialog,
+            openProgressDialog, injectButton, findButtonContainer
+        }
     };
 
     if (document.readyState === 'loading') {

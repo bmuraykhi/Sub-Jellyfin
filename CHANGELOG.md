@@ -8,6 +8,11 @@ compares internally.
 
 ## [Unreleased]
 
+### Added
+
+- Unit tests for the injected web UI (vitest + jsdom), run in CI alongside
+  the existing C# tests and ESLint.
+
 ### Changed
 
 - Bumped `Newtonsoft.Json` from 13.0.1 to 13.0.4. Compile-time only: the

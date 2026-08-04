@@ -38,6 +38,9 @@ jobs:
       - name: Lint JS
         run: npx eslint .
 
+      - name: Test JS
+        run: npm test
+
       - name: Validate manifest.json + meta.json
         run: |
           for f in manifest.json meta.json; do
