@@ -4,7 +4,17 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
   - package-ecosystem: nuget
-    directory: /
+    directories:
+      - /
+      - /tests/*
     schedule:
       interval: weekly
+    groups:
+      nuget:
+        patterns:
+          - "*"
