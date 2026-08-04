@@ -8,6 +8,12 @@ compares internally.
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped `Newtonsoft.Json` from 13.0.1 to 13.0.4. Compile-time only: the
+  assembly version is 13.0.0.0 across all of 13.x, so the plugin still binds to
+  whatever `Newtonsoft.Json` the Jellyfin host loads.
+
 ## [1.0.2.0] – 2026-08-03
 
 ### Added
