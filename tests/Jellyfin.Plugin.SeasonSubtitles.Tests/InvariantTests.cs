@@ -94,4 +94,17 @@ public class InvariantTests
         Assert.True(abi <= pkg, $"targetAbi {abi} must not exceed the compiled package version {pkg}");
         Assert.Equal(4, targetAbi!.Split('.').Length);
     }
+
+    [Fact]
+    public void PackageLockName_MatchesPackageJsonName()
+    {
+        using var pkgDoc = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepoRoot, "package.json")));
+        var pkgName = pkgDoc.RootElement.GetProperty("name").GetString();
+        Assert.False(string.IsNullOrEmpty(pkgName));
+
+        using var lockDoc = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepoRoot, "package-lock.json")));
+        var lockName = lockDoc.RootElement.GetProperty("name").GetString();
+
+        Assert.Equal(pkgName, lockName);
+    }
 }
