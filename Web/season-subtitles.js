@@ -362,7 +362,6 @@
     }
 
     // ---------- options dialog ----------
-    // Resolves with { language, skipExisting } or null on cancel.
 
     function mkLanguagePicker({ cultures, initial }) {
         const style = 'width:100%; padding:6px 8px; border-radius:6px; border:1px solid rgba(128,128,128,0.5); background:transparent; color:inherit; margin-bottom:6px; box-sizing:border-box;';
@@ -421,6 +420,7 @@
             box.setAttribute('aria-modal', 'true');
             box.setAttribute('aria-labelledby', 'season-subs-options-title');
             const prevFocus = document.activeElement;
+            let selectedLanguages = [defaultLang];
 
             const title = el('h3', { id: 'season-subs-options-title', style: 'margin:0 0 12px 0;' }, titleText);
             const sub = el(
@@ -447,16 +447,68 @@
             });
 
             function updateCoverage() {
+                coverage.innerHTML = '';
+                selectedLanguages.forEach(lang => {
+                    const have = episodes.filter(ep => alreadyHasSubtitle(ep, lang)).length;
+                    coverage.appendChild(el('div', null, STR.dlgCoverage(have, episodes.length, lang)));
+                });
+            }
+
+            const languagesHeading = el(
+                'div',
+                { style: 'font-size:13px; margin-bottom:6px; opacity:0.85;' },
+                STR.dlgLanguagesLabel
+            );
+            const chipsBox = el('div', { style: 'display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;' });
+            const languagesError = el(
+                'div',
+                { style: 'display:none; color:#e57373; font-size:12px; margin-bottom:8px;' },
+                STR.dlgLanguagesRequired
+            );
+
+            function renderChips() {
+                chipsBox.innerHTML = '';
+                selectedLanguages.forEach(lang => {
+                    const chip = mkButton(`${lang} ✕`, false);
+                    chip.setAttribute('aria-label', STR.dlgRemoveLanguage(lang));
+                    Object.assign(chip.style, { padding: '4px 10px', fontSize: '12px' });
+                    chip.onclick = () => {
+                        selectedLanguages = selectedLanguages.filter(l => l !== lang);
+                        renderChips();
+                        updateCoverage();
+                        languagesError.style.display = 'none';
+                    };
+                    chipsBox.appendChild(chip);
+                });
+            }
+            renderChips();
+            updateCoverage();
+
+            const addBtn = mkButton(STR.dlgAddLanguage, false);
+            Object.assign(addBtn.style, { padding: '6px 14px', fontSize: '13px' });
+            const addRow = el('div', { style: 'display:flex; gap:6px; align-items:flex-start; margin-bottom:6px;' });
+            addRow.append(langPicker.el, addBtn);
+
+            function addLanguage() {
                 const lang = langPicker.getValue();
-                if (!/^[a-z]{3}$/.test(lang)) {
-                    coverage.textContent = '';
+                if (!langPicker.isSelect && !/^[a-z]{3}$/.test(lang)) {
+                    langError.style.display = 'block';
+                    langPicker.el.setAttribute('aria-invalid', 'true');
+                    langPicker.el.focus();
+                    langPicker.el.select();
                     return;
                 }
-                const have = episodes.filter(ep => alreadyHasSubtitle(ep, lang)).length;
-                coverage.textContent = STR.dlgCoverage(have, episodes.length, lang);
+                langError.style.display = 'none';
+                langPicker.el.removeAttribute('aria-invalid');
+                if (selectedLanguages.indexOf(lang) === -1) {
+                    selectedLanguages.push(lang);
+                    renderChips();
+                    updateCoverage();
+                    languagesError.style.display = 'none';
+                }
+                if (!langPicker.isSelect) langPicker.el.value = '';
             }
-            updateCoverage();
-            langPicker.onChange(updateCoverage);
+            addBtn.onclick = addLanguage;
 
             const skipRow = el('label', { style: 'display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:14px;' });
             const skipCb = el('input', { type: 'checkbox' });
@@ -540,8 +592,7 @@
                 noEpisodesError.style.display = 'none';
             };
             selectMissingBtn.onclick = () => {
-                const lang = langPicker.getValue();
-                rows.forEach(r => { r.cb.checked = !alreadyHasSubtitle(r.ep, lang); });
+                rows.forEach(r => { r.cb.checked = selectedLanguages.some(lang => !alreadyHasSubtitle(r.ep, lang)); });
                 refreshToggleLabel();
                 noEpisodesError.style.display = 'none';
             };
@@ -557,16 +608,11 @@
                 resolve(result);
             }
             function submit() {
-                const lang = langPicker.getValue();
-                if (!langPicker.isSelect && !/^[a-z]{3}$/.test(lang)) {
-                    langError.style.display = 'block';
-                    langPicker.el.setAttribute('aria-invalid', 'true');
-                    langPicker.el.focus();
-                    langPicker.el.select();
+                if (selectedLanguages.length === 0) {
+                    languagesError.style.display = 'block';
                     return;
                 }
-                langError.style.display = 'none';
-                langPicker.el.removeAttribute('aria-invalid');
+                languagesError.style.display = 'none';
                 const v = parseInt(variantsInput.value, 10);
                 const topVariants = isFinite(v) ? Math.min(5, Math.max(1, v)) : 1;
                 if (episodes.length > 0) {
@@ -576,10 +622,10 @@
                         return;
                     }
                     noEpisodesError.style.display = 'none';
-                    close({ language: lang, skipExisting: skipCb.checked, topVariants, episodeIds });
+                    close({ languages: selectedLanguages.slice(), skipExisting: skipCb.checked, topVariants, episodeIds });
                     return;
                 }
-                close({ language: lang, skipExisting: skipCb.checked, topVariants });
+                close({ languages: selectedLanguages.slice(), skipExisting: skipCb.checked, topVariants });
             }
             function onKey(e) {
                 trapTab(box, e);
@@ -594,9 +640,9 @@
 
             buttons.appendChild(cancelBtn);
             buttons.appendChild(startBtn);
-            const boxChildren = [title, sub, coverage, langLabel, langPicker.el];
+            const boxChildren = [title, sub, coverage, languagesHeading, chipsBox, langLabel, addRow];
             if (!langPicker.isSelect) boxChildren.push(langError);
-            boxChildren.push(skipRow, variantsLabel, variantsInput, variantsHint, toggleBtn, listWrap, noEpisodesError, buttons);
+            boxChildren.push(languagesError, skipRow, variantsLabel, variantsInput, variantsHint, toggleBtn, listWrap, noEpisodesError, buttons);
             box.append(...boxChildren);
             overlay.appendChild(box);
             document.body.appendChild(overlay);
