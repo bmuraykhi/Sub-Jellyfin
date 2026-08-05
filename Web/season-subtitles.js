@@ -192,6 +192,12 @@
         return seen.size;
     }
 
+    function filterSelectedEpisodes(episodes, episodeIds) {
+        if (!Array.isArray(episodeIds)) return episodes;
+        const wanted = new Set(episodeIds);
+        return episodes.filter(ep => wanted.has(ep.Id));
+    }
+
     // ---------- API calls ----------
 
     async function fetchEpisodes(seriesId, seasonId) {
@@ -949,9 +955,12 @@
                     defaultLang: defaultLanguage(config, user),
                     defaultSkip: config.SkipExistingByDefault !== false,
                     defaultVariants: typeof config.TopVariants === 'number' && config.TopVariants >= 1 ? config.TopVariants : 1,
-                    cultures
+                    cultures,
+                    episodes
                 });
                 if (!opts) return;
+                const chosen = filterSelectedEpisodes(episodes, opts.episodeIds);
+                if (chosen.length === 0) return;
                 const fullOpts = {
                     language: opts.language,
                     skipExisting: opts.skipExisting,
@@ -959,7 +968,7 @@
                     maxRetries: typeof config.MaxRetries === 'number' && config.MaxRetries >= 0 ? Math.min(10, config.MaxRetries) : 2,
                     requestDelayMs: typeof config.RequestDelayMs === 'number' && config.RequestDelayMs >= 0 ? Math.min(10000, config.RequestDelayMs) : 0
                 };
-                await startRun({ ctx, opts: fullOpts, episodes });
+                await startRun({ ctx, opts: fullOpts, episodes: chosen });
             } catch (err) {
                 console.error(LOG, 'Run failed to start', err);
                 toast(STR.toastRunFailed, 3000);
@@ -1126,7 +1135,7 @@
         forceInject() { evaluateDetailsPage(); return 'queued'; },
         _internals: {
             STR, debounce, delay, escHtml, defaultLanguage, alreadyHasSubtitle,
-            epLabel, distinctSeasonsCount, errStatus, isRetryable, describeErr,
+            epLabel, distinctSeasonsCount, filterSelectedEpisodes, errStatus, isRetryable, describeErr,
             withRetry, processEpisode, runBatch, openOptionsDialog,
             openProgressDialog, injectButton, findButtonContainer,
             toast, themeColors, focusables, trapTab, loadCultures, mkLanguagePicker
