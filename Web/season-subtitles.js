@@ -346,6 +346,54 @@
     // ---------- options dialog ----------
     // Resolves with { language, skipExisting } or null on cancel.
 
+    function mkLanguagePicker({ cultures, initial }) {
+        const style = 'width:100%; padding:6px 8px; border-radius:6px; border:1px solid rgba(128,128,128,0.5); background:transparent; color:inherit; margin-bottom:6px; box-sizing:border-box;';
+        if (!cultures || cultures.length === 0) {
+            const input = el('input', {
+                id: 'season-subs-lang', type: 'text', maxLength: 3, autocomplete: 'off',
+                className: 'emby-input', style
+            });
+            input.value = initial;
+            return {
+                el: input,
+                isSelect: false,
+                getValue: () => (input.value || '').trim().toLowerCase(),
+                onChange: fn => input.addEventListener('input', fn)
+            };
+        }
+        let select;
+        try {
+            select = document.createElement('select', { is: 'emby-select' });
+        } catch (_) {
+            select = document.createElement('select');
+        }
+        select.setAttribute('is', 'emby-select');
+        select.id = 'season-subs-lang';
+        select.className = 'emby-select';
+        select.style.cssText = style;
+        let hasInitial = false;
+        cultures.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.code;
+            opt.textContent = `${c.label} (${c.code})`;
+            if (c.code === initial) hasInitial = true;
+            select.appendChild(opt);
+        });
+        if (initial && /^[a-z]{3}$/.test(initial) && !hasInitial) {
+            const opt = document.createElement('option');
+            opt.value = initial;
+            opt.textContent = initial;
+            select.appendChild(opt);
+        }
+        if (initial) select.value = initial;
+        return {
+            el: select,
+            isSelect: true,
+            getValue: () => select.value,
+            onChange: fn => select.addEventListener('change', fn)
+        };
+    }
+
     function openOptionsDialog({ titleText, scopeText, defaultLang, defaultSkip, defaultVariants }) {
         return new Promise(resolve => {
             const overlay = mkOverlay();
