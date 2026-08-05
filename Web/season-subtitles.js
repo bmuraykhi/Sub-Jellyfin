@@ -37,6 +37,7 @@
         dlgScopeSeason: (n) => `${n} episode${n === 1 ? '' : 's'} in this season.`,
         dlgScopeSeries: (n, s) => `${n} episode${n === 1 ? '' : 's'} across ${s} season${s === 1 ? '' : 's'}.`,
         dlgLangLabel: 'Language (3-letter ISO, e.g. eng, fra, heb)',
+        dlgLangSelectLabel: 'Subtitle language',
         dlgLangInvalid: 'Enter a 3-letter ISO 639-2 code, e.g. eng',
         dlgSkipLabel: 'Skip episodes that already have a subtitle in this language',
         dlgVariantsLabel: 'Variants per episode (1-5)',
@@ -394,7 +395,7 @@
         };
     }
 
-    function openOptionsDialog({ titleText, scopeText, defaultLang, defaultSkip, defaultVariants }) {
+    function openOptionsDialog({ titleText, scopeText, defaultLang, defaultSkip, defaultVariants, cultures }) {
         return new Promise(resolve => {
             const overlay = mkOverlay();
             overlay.setAttribute('role', 'presentation');
@@ -411,25 +412,20 @@
                 scopeText
             );
 
+            const langPicker = mkLanguagePicker({ cultures, initial: defaultLang });
             const langLabel = el(
                 'label',
                 { style: 'display:block; font-size:13px; margin-bottom:6px;', htmlFor: 'season-subs-lang' },
-                STR.dlgLangLabel
+                langPicker.isSelect ? STR.dlgLangSelectLabel : STR.dlgLangLabel
             );
-            const langInput = el('input', {
-                id: 'season-subs-lang', type: 'text', maxLength: 3, autocomplete: 'off',
-                className: 'emby-input',
-                style: 'width:100%; padding:6px 8px; border-radius:6px; border:1px solid rgba(128,128,128,0.5); background:transparent; color:inherit; margin-bottom:6px; box-sizing:border-box;'
-            });
-            langInput.value = defaultLang;
             const langError = el(
                 'div',
                 { style: 'display:none; color:#e57373; font-size:12px; margin-bottom:8px;' },
                 STR.dlgLangInvalid
             );
-            langInput.addEventListener('input', () => {
+            langPicker.onChange(() => {
                 langError.style.display = 'none';
-                langInput.removeAttribute('aria-invalid');
+                langPicker.el.removeAttribute('aria-invalid');
             });
 
             const skipRow = el('label', { style: 'display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:14px;' });
@@ -466,16 +462,16 @@
                 resolve(result);
             }
             function submit() {
-                const lang = (langInput.value || '').trim().toLowerCase();
-                if (!/^[a-z]{3}$/.test(lang)) {
+                const lang = langPicker.getValue();
+                if (!langPicker.isSelect && !/^[a-z]{3}$/.test(lang)) {
                     langError.style.display = 'block';
-                    langInput.setAttribute('aria-invalid', 'true');
-                    langInput.focus();
-                    langInput.select();
+                    langPicker.el.setAttribute('aria-invalid', 'true');
+                    langPicker.el.focus();
+                    langPicker.el.select();
                     return;
                 }
                 langError.style.display = 'none';
-                langInput.removeAttribute('aria-invalid');
+                langPicker.el.removeAttribute('aria-invalid');
                 const v = parseInt(variantsInput.value, 10);
                 const topVariants = isFinite(v) ? Math.min(5, Math.max(1, v)) : 1;
                 close({ language: lang, skipExisting: skipCb.checked, topVariants });
@@ -493,10 +489,16 @@
 
             buttons.appendChild(cancelBtn);
             buttons.appendChild(startBtn);
-            box.append(title, sub, langLabel, langInput, langError, skipRow, variantsLabel, variantsInput, variantsHint, buttons);
+            const boxChildren = [title, sub, langLabel, langPicker.el];
+            if (!langPicker.isSelect) boxChildren.push(langError);
+            boxChildren.push(skipRow, variantsLabel, variantsInput, variantsHint, buttons);
+            box.append(...boxChildren);
             overlay.appendChild(box);
             document.body.appendChild(overlay);
-            setTimeout(() => { langInput.focus(); langInput.select(); }, 0);
+            setTimeout(() => {
+                langPicker.el.focus();
+                if (!langPicker.isSelect) langPicker.el.select();
+            }, 0);
         });
     }
 
@@ -831,10 +833,11 @@
             if (button.disabled) return;
             button.disabled = true;
             try {
-                const [config, user, episodes] = await Promise.all([
+                const [config, user, episodes, cultures] = await Promise.all([
                     loadConfig(),
                     loadCurrentUser(),
-                    fetchEpisodes(ctx.seriesId, ctx.seasonId)
+                    fetchEpisodes(ctx.seriesId, ctx.seasonId),
+                    loadCultures()
                 ]);
                 if (episodes.length === 0) {
                     toast(ctx.mode === 'series' ? STR.toastNoEpisodesSeries : STR.toastNoEpisodesSeason, 3000);
@@ -851,7 +854,8 @@
                     scopeText,
                     defaultLang: defaultLanguage(config, user),
                     defaultSkip: config.SkipExistingByDefault !== false,
-                    defaultVariants: typeof config.TopVariants === 'number' && config.TopVariants >= 1 ? config.TopVariants : 1
+                    defaultVariants: typeof config.TopVariants === 'number' && config.TopVariants >= 1 ? config.TopVariants : 1,
+                    cultures
                 });
                 if (!opts) return;
                 const fullOpts = {
