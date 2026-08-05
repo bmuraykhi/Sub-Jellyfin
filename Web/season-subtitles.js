@@ -284,7 +284,8 @@
     function focusables(box) {
         return Array.prototype.filter.call(
             box.querySelectorAll('button, input, select, [tabindex]'),
-            n => !n.disabled && n.tabIndex !== -1 && n.style.display !== 'none'
+            n => !n.disabled && n.tabIndex !== -1 && n.style.display !== 'none' &&
+                !n.closest('[data-season-subs-collapsed="1"]')
         );
     }
 
@@ -400,7 +401,7 @@
         };
     }
 
-    function openOptionsDialog({ titleText, scopeText, defaultLang, defaultSkip, defaultVariants, cultures }) {
+    function openOptionsDialog({ titleText, scopeText, defaultLang, defaultSkip, defaultVariants, cultures, episodes = [] }) {
         return new Promise(resolve => {
             const overlay = mkOverlay();
             overlay.setAttribute('role', 'presentation');
@@ -416,6 +417,7 @@
                 { style: 'opacity:0.75; font-size:13px; margin-bottom:14px;' },
                 scopeText
             );
+            const coverage = el('div', { style: 'opacity:0.75; font-size:13px; margin-bottom:10px;' });
 
             const langPicker = mkLanguagePicker({ cultures, initial: defaultLang });
             const langLabel = el(
@@ -432,6 +434,18 @@
                 langError.style.display = 'none';
                 langPicker.el.removeAttribute('aria-invalid');
             });
+
+            function updateCoverage() {
+                const lang = langPicker.getValue();
+                if (!/^[a-z]{3}$/.test(lang)) {
+                    coverage.textContent = '';
+                    return;
+                }
+                const have = episodes.filter(ep => alreadyHasSubtitle(ep, lang)).length;
+                coverage.textContent = STR.dlgCoverage(have, episodes.length, lang);
+            }
+            updateCoverage();
+            langPicker.onChange(updateCoverage);
 
             const skipRow = el('label', { style: 'display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:14px;' });
             const skipCb = el('input', { type: 'checkbox' });
@@ -456,6 +470,71 @@
                 STR.dlgVariantsHint
             );
 
+            const listBox = el('div', {
+                style: 'font-size:13px; line-height:1.6; max-height:180px; overflow-y:auto; margin-bottom:8px; padding:8px 10px; background:rgba(128,128,128,0.12); border-radius:6px;'
+            });
+            const rows = episodes.map(ep => {
+                const cb = el('input', { type: 'checkbox', className: 'emby-checkbox' });
+                cb.checked = true;
+                cb.dataset.episodeId = ep.Id;
+                const row = el('label', { style: 'display:flex; align-items:center; gap:8px; padding:3px 0;' });
+                row.appendChild(cb);
+                row.appendChild(document.createTextNode(epLabel(ep)));
+                listBox.appendChild(row);
+                return { ep, cb };
+            });
+
+            const actionsRow = el('div', { style: 'display:flex; gap:8px; margin-bottom:8px;' });
+            const selectAllBtn = mkButton(STR.dlgSelectAll, false);
+            const selectMissingBtn = mkButton(STR.dlgSelectMissing, false);
+            Object.assign(selectAllBtn.style, { padding: '4px 10px', fontSize: '12px' });
+            Object.assign(selectMissingBtn.style, { padding: '4px 10px', fontSize: '12px' });
+            actionsRow.append(selectAllBtn, selectMissingBtn);
+
+            const listWrap = el('div', { style: 'display:none; margin-bottom:8px;' });
+            listWrap.dataset.seasonSubsCollapsed = '1';
+            listWrap.append(actionsRow, listBox);
+
+            const noEpisodesError = el(
+                'div',
+                { style: 'display:none; color:#e57373; font-size:12px; margin-bottom:8px;' },
+                STR.dlgNoEpisodesSelected
+            );
+
+            function selectedCount() {
+                return rows.filter(r => r.cb.checked).length;
+            }
+            const toggleBtn = mkButton(STR.dlgEpisodesToggle(selectedCount(), episodes.length), false);
+            Object.assign(toggleBtn.style, { width: '100%', textAlign: 'left', marginTop: '4px', marginBottom: '8px' });
+            function refreshToggleLabel() {
+                toggleBtn.textContent = STR.dlgEpisodesToggle(selectedCount(), episodes.length);
+            }
+            toggleBtn.onclick = () => {
+                const collapsed = listWrap.style.display === 'none';
+                if (collapsed) {
+                    listWrap.style.display = '';
+                    delete listWrap.dataset.seasonSubsCollapsed;
+                } else {
+                    listWrap.style.display = 'none';
+                    listWrap.dataset.seasonSubsCollapsed = '1';
+                }
+            };
+            listBox.addEventListener('change', () => {
+                refreshToggleLabel();
+                noEpisodesError.style.display = 'none';
+            });
+            selectAllBtn.onclick = () => {
+                rows.forEach(r => { r.cb.checked = true; });
+                refreshToggleLabel();
+                noEpisodesError.style.display = 'none';
+            };
+            selectMissingBtn.onclick = () => {
+                const lang = langPicker.getValue();
+                rows.forEach(r => { r.cb.checked = !alreadyHasSubtitle(r.ep, lang); });
+                refreshToggleLabel();
+                noEpisodesError.style.display = 'none';
+            };
+
             const buttons = el('div', { style: 'display:flex; justify-content:flex-end; gap:10px;' });
             const cancelBtn = mkButton(STR.btnCancel, false);
             const startBtn = mkButton(STR.btnStart, true);
@@ -479,6 +558,16 @@
                 langPicker.el.removeAttribute('aria-invalid');
                 const v = parseInt(variantsInput.value, 10);
                 const topVariants = isFinite(v) ? Math.min(5, Math.max(1, v)) : 1;
+                if (episodes.length > 0) {
+                    const episodeIds = rows.filter(r => r.cb.checked).map(r => r.cb.dataset.episodeId);
+                    if (episodeIds.length === 0) {
+                        noEpisodesError.style.display = 'block';
+                        return;
+                    }
+                    noEpisodesError.style.display = 'none';
+                    close({ language: lang, skipExisting: skipCb.checked, topVariants, episodeIds });
+                    return;
+                }
                 close({ language: lang, skipExisting: skipCb.checked, topVariants });
             }
             function onKey(e) {
@@ -494,9 +583,9 @@
 
             buttons.appendChild(cancelBtn);
             buttons.appendChild(startBtn);
-            const boxChildren = [title, sub, langLabel, langPicker.el];
+            const boxChildren = [title, sub, coverage, langLabel, langPicker.el];
             if (!langPicker.isSelect) boxChildren.push(langError);
-            boxChildren.push(skipRow, variantsLabel, variantsInput, variantsHint, buttons);
+            boxChildren.push(skipRow, variantsLabel, variantsInput, variantsHint, toggleBtn, listWrap, noEpisodesError, buttons);
             box.append(...boxChildren);
             overlay.appendChild(box);
             document.body.appendChild(overlay);
