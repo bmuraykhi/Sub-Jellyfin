@@ -7,7 +7,7 @@
 <div id="SeasonSubtitleDownloaderConfigPage"
      data-role="page"
      class="page type-interior pluginConfigurationPage"
-     data-require="emby-input,emby-button,emby-checkbox">
+     data-require="emby-input,emby-button,emby-checkbox,emby-select">
 
     <div data-role="content">
         <div class="content-primary">
@@ -30,6 +30,7 @@
                            autocomplete="off"
                            placeholder="eng"
                            pattern="[A-Za-z]{3}" />
+                    <select is="emby-select" id="DefaultLanguageSelect" style="display:none;"></select>
                     <div class="fieldDescription">
                         Leave blank to fall back to the current user's Jellyfin subtitle preference, then to <code>eng</code>.
                     </div>
@@ -112,12 +113,65 @@
                 if (btn) btn.disabled = disabled;
             }
 
+            function loadCultures(page) {
+                var select = page.querySelector('#DefaultLanguageSelect');
+                var input = page.querySelector('#DefaultLanguage');
+                var req;
+                try {
+                    req = typeof ApiClient.getCultures === 'function'
+                        ? ApiClient.getCultures()
+                        : ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Localization/Cultures'), dataType: 'json' });
+                } catch (e) {
+                    return;
+                }
+                req.then(function (list) {
+                    if (!Array.isArray(list) || list.length === 0) return;
+                    var seen = {};
+                    var options = [];
+                    list.forEach(function (c) {
+                        if (!c) return;
+                        var raw = c.ThreeLetterISOLanguageName ||
+                            (Array.isArray(c.ThreeLetterISOLanguageNames) && c.ThreeLetterISOLanguageNames[0]) || '';
+                        var code = String(raw).toLowerCase();
+                        if (!/^[a-z]{3}$/.test(code) || seen[code]) return;
+                        seen[code] = true;
+                        options.push({ code: code, label: c.DisplayName || c.Name || code });
+                    });
+                    if (options.length === 0) return;
+                    options.sort(function (a, b) { return a.label.localeCompare(b.label); });
+                    select.innerHTML = '';
+                    var blank = document.createElement('option');
+                    blank.value = '';
+                    blank.textContent = "Use each user's preference";
+                    select.appendChild(blank);
+                    var current = input.value;
+                    var hasCurrent = current === '';
+                    options.forEach(function (o) {
+                        var opt = document.createElement('option');
+                        opt.value = o.code;
+                        opt.textContent = o.label + ' (' + o.code + ')';
+                        if (o.code === current) hasCurrent = true;
+                        select.appendChild(opt);
+                    });
+                    if (current && !hasCurrent) {
+                        var extra = document.createElement('option');
+                        extra.value = current;
+                        extra.textContent = current;
+                        select.appendChild(extra);
+                    }
+                    select.value = current;
+                    select.style.display = '';
+                    input.style.display = 'none';
+                }).catch(function () {});
+            }
+
             function load(page) {
                 if (busy) return;
                 busy = true;
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
                     page.querySelector('#DefaultLanguage').value = (config.DefaultLanguage || '').toLowerCase();
+                    loadCultures(page);
                     page.querySelector('#SkipExistingByDefault').checked = !!config.SkipExistingByDefault;
                     page.querySelector('#MaxRetries').value = (config.MaxRetries != null ? config.MaxRetries : 2);
                     page.querySelector('#RequestDelayMs').value = (config.RequestDelayMs != null ? config.RequestDelayMs : 0);
@@ -136,10 +190,17 @@
                 Dashboard.showLoadingMsg();
                 setSubmitDisabled(page, true);
                 ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
-                    var lang = (page.querySelector('#DefaultLanguage').value || '').trim().toLowerCase();
-                    if (lang && !/^[a-z]{3}$/.test(lang)) {
-                        Dashboard.alert('Default language must be a 3-letter ISO code (e.g. eng) or blank.');
-                        return null;
+                    var select = page.querySelector('#DefaultLanguageSelect');
+                    var usingSelect = select && select.style.display !== 'none';
+                    var lang;
+                    if (usingSelect) {
+                        lang = select.value;
+                    } else {
+                        lang = (page.querySelector('#DefaultLanguage').value || '').trim().toLowerCase();
+                        if (lang && !/^[a-z]{3}$/.test(lang)) {
+                            Dashboard.alert('Default language must be a 3-letter ISO code (e.g. eng) or blank.');
+                            return null;
+                        }
                     }
                     config.DefaultLanguage = lang;
                     config.SkipExistingByDefault = page.querySelector('#SkipExistingByDefault').checked;
