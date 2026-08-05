@@ -23,6 +23,10 @@ compares internally.
   into the dialog, Tab cycles within it, Escape closes/cancels, and focus
   returns to the Download Subs button afterwards. Screen readers now announce
   them as dialogs.
+- Subtitle language is now picked from a dropdown of the server's known
+  languages (with readable names) in both the download dialog and the plugin
+  settings page, instead of a free-text 3-letter code field. Free-text entry
+  remains as a fallback when the language list cannot be fetched.
 
 ## [1.0.2.0] – 2026-08-03
 
