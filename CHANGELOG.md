@@ -12,6 +12,10 @@ compares internally.
 
 - Unit tests for the injected web UI (vitest + jsdom), run in CI alongside
   the existing C# tests and ESLint.
+- The download dialog now shows how many episodes already have subtitles in
+  the chosen language before you start, and lets you expand an episode list
+  to hand-pick which episodes to process — including a one-click "Only
+  missing" selection.
 
 ### Changed
 
