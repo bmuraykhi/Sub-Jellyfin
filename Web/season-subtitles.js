@@ -233,10 +233,41 @@
         return o;
     }
 
+    function themeColors() {
+        const candidates = [document.body, document.documentElement];
+        for (const c of candidates) {
+            if (!c) continue;
+            const cs = getComputedStyle(c);
+            const bg = cs.backgroundColor;
+            if (bg && bg !== 'transparent' && !/rgba\([^)]*,\s*0\s*\)/.test(bg)) {
+                return { bg, fg: cs.color || '#fff' };
+            }
+        }
+        return null;
+    }
+
+    function focusables(box) {
+        return Array.prototype.filter.call(
+            box.querySelectorAll('button, input, select, [tabindex]'),
+            n => !n.disabled && n.tabIndex !== -1 && n.style.display !== 'none'
+        );
+    }
+
+    function trapTab(box, e) {
+        if (e.key !== 'Tab') return;
+        const f = focusables(box);
+        if (f.length === 0) return;
+        const first = f[0];
+        const last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+
     function mkBox() {
         const b = document.createElement('div');
+        const t = themeColors();
         Object.assign(b.style, {
-            background: '#1f1f1f', color: '#fff', padding: '20px 24px',
+            background: t ? t.bg : '#1f1f1f', color: t ? t.fg : '#fff', padding: '20px 24px',
             borderRadius: '10px', minWidth: '340px', maxWidth: '460px',
             boxShadow: '0 10px 40px rgba(0,0,0,0.5)', fontFamily: 'inherit'
         });
@@ -269,6 +300,8 @@
     function toast(message, ms = 4000) {
         const t = document.createElement('div');
         t.textContent = message;
+        t.setAttribute('role', 'status');
+        t.setAttribute('aria-live', 'polite');
         Object.assign(t.style, {
             position: 'fixed', bottom: '20px', right: '20px', zIndex: 99999,
             background: 'rgba(20,20,20,0.95)', color: '#fff',
@@ -287,9 +320,14 @@
     function openOptionsDialog({ titleText, scopeText, defaultLang, defaultSkip, defaultVariants }) {
         return new Promise(resolve => {
             const overlay = mkOverlay();
+            overlay.setAttribute('role', 'presentation');
             const box = mkBox();
+            box.setAttribute('role', 'dialog');
+            box.setAttribute('aria-modal', 'true');
+            box.setAttribute('aria-labelledby', 'season-subs-options-title');
+            const prevFocus = document.activeElement;
 
-            const title = el('h3', { style: 'margin:0 0 12px 0;' }, titleText);
+            const title = el('h3', { id: 'season-subs-options-title', style: 'margin:0 0 12px 0;' }, titleText);
             const sub = el(
                 'div',
                 { style: 'opacity:0.75; font-size:13px; margin-bottom:14px;' },
@@ -303,7 +341,8 @@
             );
             const langInput = el('input', {
                 id: 'season-subs-lang', type: 'text', maxLength: 3, autocomplete: 'off',
-                style: 'width:100%; padding:6px 8px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; margin-bottom:6px; box-sizing:border-box;'
+                className: 'emby-input',
+                style: 'width:100%; padding:6px 8px; border-radius:6px; border:1px solid rgba(128,128,128,0.5); background:transparent; color:inherit; margin-bottom:6px; box-sizing:border-box;'
             });
             langInput.value = defaultLang;
             const langError = el(
@@ -329,7 +368,8 @@
             );
             const variantsInput = el('input', {
                 id: 'season-subs-variants', type: 'number', min: 1, max: 5, step: 1,
-                style: 'width:90px; padding:6px 8px; border-radius:6px; border:1px solid #444; background:#111; color:#fff; box-sizing:border-box;'
+                className: 'emby-input',
+                style: 'width:90px; padding:6px 8px; border-radius:6px; border:1px solid rgba(128,128,128,0.5); background:transparent; color:inherit; box-sizing:border-box;'
             });
             variantsInput.value = String(Math.min(5, Math.max(1, parseInt(defaultVariants, 10) || 1)));
             const variantsHint = el(
@@ -345,6 +385,7 @@
             function close(result) {
                 document.removeEventListener('keydown', onKey);
                 overlay.remove();
+                if (prevFocus && typeof prevFocus.focus === 'function' && document.contains(prevFocus)) prevFocus.focus();
                 resolve(result);
             }
             function submit() {
@@ -363,6 +404,7 @@
                 close({ language: lang, skipExisting: skipCb.checked, topVariants });
             }
             function onKey(e) {
+                trapTab(box, e);
                 if (e.key === 'Escape') { e.preventDefault(); close(null); }
                 else if (e.key === 'Enter' && document.activeElement !== cancelBtn) { e.preventDefault(); submit(); }
             }
@@ -385,13 +427,18 @@
 
     function openProgressDialog() {
         const overlay = mkOverlay();
+        overlay.setAttribute('role', 'presentation');
         const box = mkBox();
         box.style.minWidth = '400px';
+        box.setAttribute('role', 'dialog');
+        box.setAttribute('aria-modal', 'true');
+        box.setAttribute('aria-labelledby', 'season-subs-progress-title');
+        const prevFocus = document.activeElement;
 
-        const title = el('h3', { style: 'margin:0 0 8px 0;' }, STR.progTitle);
+        const title = el('h3', { id: 'season-subs-progress-title', style: 'margin:0 0 8px 0;' }, STR.progTitle);
         const current = el('div', { style: 'font-size:13px; margin-bottom:6px; min-height:18px; opacity:0.85;' }, '');
 
-        const barOuter = el('div', { style: 'width:100%; height:8px; background:#333; border-radius:4px; overflow:hidden; margin-bottom:14px;' });
+        const barOuter = el('div', { style: 'width:100%; height:8px; background:rgba(128,128,128,0.25); border-radius:4px; overflow:hidden; margin-bottom:14px;' });
         const barInner = el('div', { style: 'height:100%; width:0%; background:#aa5cc3; transition:width 0.2s;' });
         barOuter.appendChild(barInner);
 
@@ -403,7 +450,7 @@
         counts.append(cDl, cSk, cMs, cFl);
 
         const failBox = el('div', {
-            style: 'font-size:13px; line-height:1.5; max-height:160px; overflow-y:auto; margin-bottom:14px; display:none; padding:8px 10px; background:#161616; border-radius:6px;'
+            style: 'font-size:13px; line-height:1.5; max-height:160px; overflow-y:auto; margin-bottom:14px; display:none; padding:8px 10px; background:rgba(128,128,128,0.12); border-radius:6px;'
         });
 
         const buttons = el('div', { style: 'display:flex; justify-content:flex-end; gap:10px;' });
@@ -417,6 +464,7 @@
         box.append(title, current, barOuter, counts, failBox, buttons);
         overlay.appendChild(box);
         document.body.appendChild(overlay);
+        setTimeout(() => cancelBtn.focus(), 0);
 
         const cancelToken = { cancelled: false };
         let onRetry = null;
@@ -436,6 +484,7 @@
         closeBtn.onclick = () => close();
 
         function onKey(e) {
+            trapTab(box, e);
             if (e.key !== 'Escape') return;
             if (cancelBtn.style.display !== 'none' && !cancelBtn.disabled) {
                 cancelBtn.onclick();
@@ -450,6 +499,7 @@
         function close() {
             document.removeEventListener('keydown', onKey);
             overlay.remove();
+            if (prevFocus && typeof prevFocus.focus === 'function' && document.contains(prevFocus)) prevFocus.focus();
         }
 
         function setCounts(c) {
