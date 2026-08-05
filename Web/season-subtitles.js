@@ -953,7 +953,8 @@
             STR, debounce, delay, escHtml, defaultLanguage, alreadyHasSubtitle,
             epLabel, distinctSeasonsCount, errStatus, isRetryable, describeErr,
             withRetry, processEpisode, runBatch, openOptionsDialog,
-            openProgressDialog, injectButton, findButtonContainer
+            openProgressDialog, injectButton, findButtonContainer,
+            toast, themeColors, focusables, trapTab
         }
     };
 
