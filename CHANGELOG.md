@@ -16,6 +16,11 @@ compares internally.
   the chosen language before you start, and lets you expand an episode list
   to hand-pick which episodes to process — including a one-click "Only
   missing" selection.
+- Download subtitles for several languages in one run: add any number of
+  languages in the dialog, skipping and failure reporting are tracked per
+  language, and Retry Failed re-runs only the exact episode/language pairs
+  that failed. Counts now tally per language, so one episode fetched in two
+  languages reports two downloads.
 
 ### Changed
 
