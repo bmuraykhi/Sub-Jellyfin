@@ -18,6 +18,11 @@ compares internally.
 - Bumped `Newtonsoft.Json` from 13.0.1 to 13.0.4. Compile-time only: the
   assembly version is 13.0.0.0 across all of 13.x, so the plugin still binds to
   whatever `Newtonsoft.Json` the Jellyfin host loads.
+- The options and progress dialogs now follow the active Jellyfin theme
+  instead of always rendering dark, and behave as proper modals: focus moves
+  into the dialog, Tab cycles within it, Escape closes/cancels, and focus
+  returns to the Download Subs button afterwards. Screen readers now announce
+  them as dialogs.
 
 ## [1.0.2.0] – 2026-08-03
 
