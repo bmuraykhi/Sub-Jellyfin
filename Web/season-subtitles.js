@@ -1035,7 +1035,7 @@
             epLabel, distinctSeasonsCount, errStatus, isRetryable, describeErr,
             withRetry, processEpisode, runBatch, openOptionsDialog,
             openProgressDialog, injectButton, findButtonContainer,
-            toast, themeColors, focusables, trapTab
+            toast, themeColors, focusables, trapTab, loadCultures, mkLanguagePicker
         }
     };
 
