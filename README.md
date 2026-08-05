@@ -13,9 +13,9 @@ a whole series — from Jellyfin's web client.
 
 </div>
 
-Adds a **Download Subs** button to season *and* series pages. Click it, pick a
-language, and it walks every episode using whichever subtitle providers you
-already have configured — no per-episode clicking, no shell access.
+Adds a **Download Subs** button to season *and* series pages. Click it, pick one
+or more languages, and it walks every episode using whichever subtitle providers
+you already have configured — no per-episode clicking, no shell access.
 
 It doesn't modify `jellyfin-web`. A 64 KB DLL injects a small script into
 `index.html` through the
@@ -53,16 +53,23 @@ appears on any season page. If it doesn't, see [Troubleshooting](#troubleshootin
 
 1. Open a **season** page (that season only) or a **series** page (every season).
 2. Click **Download Subs**.
-3. Pick the language, whether to skip episodes that already have one, and how
-   many variants to pull per episode.
-4. **Start.** Progress shows live counts — downloaded, skipped, no match, failed.
+3. Pick your languages from the dropdown — add as many as you want, each one
+   becomes a chip. The dialog shows how many episodes already have subtitles in
+   each of them.
+4. Choose whether to skip episodes that already have one, how many variants to
+   pull per episode, and — if you don't want the whole scope — expand the
+   episode list and tick just the ones you want (*Only missing* selects every
+   episode short of at least one of your languages).
+5. **Start.** Progress shows live counts — downloaded, skipped, no match, failed.
    **Cancel** (or Esc) stops between episodes.
-5. When it finishes, any failures are listed per episode with the reason.
-   **Retry Failed** re-runs just those, as many times as you need.
+6. When it finishes, any failures are listed per episode and language with the
+   reason. **Retry Failed** re-runs exactly those pairs, as many times as you
+   need.
 
-Episodes are processed one at a time. If your provider still rate-limits you,
-raise *Delay between episodes* below — and note that pulling more than one
-variant multiplies provider calls per episode.
+Episodes are processed one at a time, one language after another. Counts are per
+language, so an episode fetched in two languages reports two downloads. If your
+provider rate-limits you, raise *Delay between episodes* below — and note that
+each extra language and each extra variant multiplies provider calls per episode.
 
 ## Configuration
 
@@ -71,8 +78,8 @@ dialog opens with; language, skip-existing, and variants can be overridden per r
 
 | Setting | Default | Range | Notes |
 |---|---|---|---|
-| Default subtitle language | *blank* | 3-letter ISO | Blank falls back to the user's Jellyfin subtitle preference, then `eng` |
-| Skip episodes that already have a subtitle | on | — | Matches on the chosen language |
+| Default subtitle language | *blank* | server language list | A dropdown of the languages your server knows. Seeds the first language chip in the dialog; blank falls back to the user's Jellyfin subtitle preference, then `eng` |
+| Skip episodes that already have a subtitle | on | — | Checked per language — an episode with English but no French still gets French |
 | Retry attempts per episode | `2` | 0–10 | Retries network errors, 429 and 5xx with backoff. 4xx never retries, so a bad language code fails fast |
 | Delay between episodes | `0` ms | 0–10000 | Pause between episodes for strict providers |
 | Variants per episode | `1` | 1–5 | Pulls the top-N ranked subtitles. Useful when the best match desyncs — costs one provider call each |
@@ -84,9 +91,11 @@ Logs: `Season Subtitle Downloader transformation registered.` means it's wired u
 correctly. `File Transformation plugin not found` means install that plugin and
 restart Jellyfin. If the log looks right, hard-refresh the browser.
 
-**Everything reports "no match".** Check the language code — it must be 3-letter
-ISO 639-2 (`eng`, `fra`, `heb`), not 2-letter (`en`). Then confirm your provider
-plugin has valid credentials and isn't out of quota.
+**Everything reports "no match".** Confirm your provider plugin has valid
+credentials and isn't out of quota. The language dropdown rules out bad codes;
+only if the server's language list fails to load does the dialog fall back to a
+text field, where the code must be 3-letter ISO 639-2 (`eng`, `fra`, `heb`), not
+2-letter (`en`).
 
 **Blank tile in My Plugins.** Fixed in 1.0.2.0 — update from the catalog.
 

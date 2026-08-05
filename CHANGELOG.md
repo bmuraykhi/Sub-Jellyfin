@@ -8,25 +8,24 @@ compares internally.
 
 ## [Unreleased]
 
+## [2.0.0.0] – 2026-08-05
+
 ### Added
 
-- Unit tests for the injected web UI (vitest + jsdom), run in CI alongside
-  the existing C# tests and ESLint.
-- The download dialog now shows how many episodes already have subtitles in
-  the chosen language before you start, and lets you expand an episode list
-  to hand-pick which episodes to process — including a one-click "Only
-  missing" selection.
 - Download subtitles for several languages in one run: add any number of
   languages in the dialog, skipping and failure reporting are tracked per
   language, and Retry Failed re-runs only the exact episode/language pairs
   that failed. Counts now tally per language, so one episode fetched in two
   languages reports two downloads.
+- The download dialog now shows how many episodes already have subtitles in
+  each language you picked before you start, and lets you expand an episode
+  list to hand-pick which episodes to process — including a one-click "Only
+  missing" selection.
+- Unit tests for the injected web UI (vitest + jsdom), run in CI alongside
+  the existing C# tests and ESLint.
 
 ### Changed
 
-- Bumped `Newtonsoft.Json` from 13.0.1 to 13.0.4. Compile-time only: the
-  assembly version is 13.0.0.0 across all of 13.x, so the plugin still binds to
-  whatever `Newtonsoft.Json` the Jellyfin host loads.
 - The options and progress dialogs now follow the active Jellyfin theme
   instead of always rendering dark, and behave as proper modals: focus moves
   into the dialog, Tab cycles within it, Escape closes/cancels, and focus
@@ -36,6 +35,9 @@ compares internally.
   languages (with readable names) in both the download dialog and the plugin
   settings page, instead of a free-text 3-letter code field. Free-text entry
   remains as a fallback when the language list cannot be fetched.
+- Bumped `Newtonsoft.Json` from 13.0.1 to 13.0.4. Compile-time only: the
+  assembly version is 13.0.0.0 across all of 13.x, so the plugin still binds to
+  whatever `Newtonsoft.Json` the Jellyfin host loads.
 
 ## [1.0.2.0] – 2026-08-03
 
