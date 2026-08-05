@@ -71,6 +71,7 @@
     let observerStarted = false;
     let cachedConfig = null;
     let cachedUser = null;
+    let cachedCultures = null;
 
     // ---------- helpers ----------
 
@@ -124,6 +125,34 @@
         } catch (_) {
             return Promise.resolve(null);
         }
+    }
+
+    function loadCultures() {
+        if (cachedCultures) return Promise.resolve(cachedCultures);
+        let req;
+        try {
+            req = typeof ApiClient.getCultures === 'function'
+                ? ApiClient.getCultures()
+                : ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Localization/Cultures'), dataType: 'json' });
+        } catch (_) {
+            return Promise.resolve(null);
+        }
+        return req.then(list => {
+            const seen = new Set();
+            const out = [];
+            (Array.isArray(list) ? list : []).forEach(c => {
+                if (!c) return;
+                const raw = c.ThreeLetterISOLanguageName ||
+                    (Array.isArray(c.ThreeLetterISOLanguageNames) && c.ThreeLetterISOLanguageNames[0]) || '';
+                const code = String(raw).toLowerCase();
+                if (!/^[a-z]{3}$/.test(code) || seen.has(code)) return;
+                seen.add(code);
+                out.push({ code, label: c.DisplayName || c.Name || code });
+            });
+            out.sort((a, b) => a.label.localeCompare(b.label));
+            cachedCultures = out.length > 0 ? out : null;
+            return cachedCultures;
+        }).catch(() => null);
     }
 
     function defaultLanguage(config, user) {
