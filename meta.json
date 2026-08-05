@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "feat(release): ship icon.png in the plugin zip so My Plugins renders a logo",
+  "changelog": "chore(release): prepare 2.0.0.0 notes and catalog copy",
   "description": "Adds a 'Download Subs' button to season and series pages that batch-downloads subtitles for every episode, in one or more languages.",
   "guid": "a3c0e5c3-7d0d-4b91-9d1c-2e6f9b3a1c5d",
   "imagePath": "icon.png",
@@ -8,6 +8,6 @@
   "overview": "One-click subtitle downloads for a whole season or series, in as many languages as you need. Requires the File Transformation plugin.",
   "owner": "Bandar",
   "targetAbi": "10.11.0.0",
-  "timestamp": "2026-08-03T15:17:37Z",
-  "version": "1.0.2.0"
+  "timestamp": "2026-08-05T16:01:55Z",
+  "version": "2.0.0.0"
 }

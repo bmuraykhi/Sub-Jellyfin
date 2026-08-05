@@ -9,6 +9,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "2.0.0.0",
+        "changelog": "chore(release): prepare 2.0.0.0 notes and catalog copy",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v2.0.0.0/season-subtitle-downloader.zip",
+        "checksum": "AE104FE56A9CD8F6CD21F215265F43B3",
+        "timestamp": "2026-08-05T16:02:16Z"
+      },
+      {
         "version": "1.0.2.0",
         "changelog": "feat(release): ship icon.png in the plugin zip so My Plugins renders a logo",
         "targetAbi": "10.11.0.0",
