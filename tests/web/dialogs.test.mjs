@@ -156,7 +156,8 @@ describe('dialogs', () => {
             expect(document.activeElement).toBe(findByText('button', I.STR.btnCancel));
         });
 
-        it('restores focus to the previously focused element after Escape closes the options dialog', () => {
+        it('restores focus to the previously focused element after Escape closes the options dialog', async () => {
+            vi.useFakeTimers();
             const anchor = document.createElement('button');
             anchor.textContent = 'anchor';
             document.body.appendChild(anchor);
@@ -165,6 +166,28 @@ describe('dialogs', () => {
             const subs = loadSeasonSubs();
             const I = subs._internals;
             openOptions(I);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(document.activeElement).toBe(document.getElementById('season-subs-lang'));
+
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+            expect(document.activeElement).toBe(anchor);
+        });
+
+        it('restores focus to the previously focused element after Escape closes the progress dialog', async () => {
+            vi.useFakeTimers();
+            const anchor = document.createElement('button');
+            anchor.textContent = 'anchor';
+            document.body.appendChild(anchor);
+            anchor.focus();
+
+            const subs = loadSeasonSubs();
+            const I = subs._internals;
+            const progress = I.openProgressDialog();
+            await vi.advanceTimersByTimeAsync(0);
+            expect(document.activeElement).toBe(findByText('button', I.STR.btnCancel));
+
+            progress.finish({ cancelled: false, hasFailures: false });
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 
             expect(document.activeElement).toBe(anchor);
