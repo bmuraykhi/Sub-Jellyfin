@@ -49,7 +49,7 @@ describe('episode picker', () => {
         expect(text).toContain('eng');
     });
 
-    it('recomputes coverage when the language changes', () => {
+    it('adds a coverage line for each added language', () => {
         const subs = loadSeasonSubs();
         const I = subs._internals;
         const cultures = [
@@ -67,10 +67,13 @@ describe('episode picker', () => {
         const select = document.getElementById('season-subs-lang');
         select.value = 'fra';
         select.dispatchEvent(new Event('change'));
+        findByText('button', I.STR.dlgAddLanguage).click();
 
-        const text = coverageEl().textContent;
-        expect(text).toContain('1 of 3');
-        expect(text).toContain('fra');
+        const lines = Array.from(document.querySelectorAll('div'))
+            .filter(n => /already (has|have) .+ subtitles$/.test(n.textContent))
+            .map(n => n.textContent);
+        expect(lines.some(t => t.includes('2 of 3') && t.includes('eng'))).toBe(true);
+        expect(lines.some(t => t.includes('1 of 3') && t.includes('fra'))).toBe(true);
     });
 
     it('renders one checked checkbox per episode and labels the toggle with the selected count', () => {
@@ -186,12 +189,10 @@ describe('episode picker', () => {
             titleText: 't', scopeText: 's', defaultLang: 'eng',
             defaultSkip: true, defaultVariants: 1
         });
-        const langInput = document.getElementById('season-subs-lang');
-        langInput.value = 'fra';
         findByText('button', I.STR.btnStart).click();
 
         const result = await p;
-        expect(result).toEqual({ language: 'fra', skipExisting: true, topVariants: 1 });
+        expect(result).toEqual({ languages: ['eng'], skipExisting: true, topVariants: 1 });
     });
 
     it('excludes the collapsed episode list from the focus trap, includes it once expanded', () => {

@@ -805,8 +805,8 @@
 
     // ---------- batch runner ----------
 
-    async function processEpisode(ep, opts, isCancelled) {
-        const search = await withRetry(() => searchSubtitles(ep.Id, opts.language), opts.maxRetries, 500, isCancelled);
+    async function processEpisode(ep, lang, opts, isCancelled) {
+        const search = await withRetry(() => searchSubtitles(ep.Id, lang), opts.maxRetries, 500, isCancelled);
         const results = Array.isArray(search) ? search.filter(r => r && r.Id) : [];
         if (results.length === 0) return { kind: 'missing' };
         const wanted = results.slice(0, Math.min(5, Math.max(1, opts.topVariants || 1)));
@@ -834,33 +834,44 @@
 
         progress.setCounts(counts);
 
+        episodeLoop:
         for (let i = 0; i < episodes.length; i++) {
             if (isCancelled()) break;
             const ep = episodes[i];
             const label = epLabel(ep);
-            progress.setProgress(i, episodes.length, label);
+            const langs = (opts.languagesByEpisode && opts.languagesByEpisode[ep.Id]) || opts.languages;
 
-            if (opts.skipExisting && alreadyHasSubtitle(ep, opts.language)) {
-                counts.skipped++;
-                progress.setCounts(counts);
-                continue;
-            }
+            for (let li = 0; li < langs.length; li++) {
+                if (isCancelled()) break episodeLoop;
+                const lang = langs[li];
+                const langLabel = STR.labelWithLang(label, lang);
+                progress.setProgress(i, episodes.length, langLabel);
 
-            try {
-                const result = await processEpisode(ep, opts, isCancelled);
-                if (result.kind === 'downloaded') {
-                    counts.downloaded++;
-                } else if (result.kind === 'missing') {
-                    counts.missing++;
-                    missing.push({ episodeId: ep.Id, label });
+                if (opts.skipExisting && alreadyHasSubtitle(ep, lang)) {
+                    counts.skipped++;
+                } else {
+                    try {
+                        const result = await processEpisode(ep, lang, opts, isCancelled);
+                        if (result.kind === 'downloaded') {
+                            counts.downloaded++;
+                        } else if (result.kind === 'missing') {
+                            counts.missing++;
+                            missing.push({ episodeId: ep.Id, language: lang, label: langLabel });
+                        }
+                    } catch (e) {
+                        if (e && e.message === 'cancelled') break episodeLoop;
+                        console.error(LOG, `Failed for ${langLabel}`, e);
+                        counts.failed++;
+                        failed.push({ episodeId: ep.Id, language: lang, label: langLabel, reason: describeErr(e) });
+                    }
                 }
-            } catch (e) {
-                if (e && e.message === 'cancelled') break;
-                console.error(LOG, `Failed for ${label}`, e);
-                counts.failed++;
-                failed.push({ episodeId: ep.Id, label, reason: describeErr(e) });
+                progress.setCounts(counts);
+
+                if (opts.requestDelayMs > 0 && li < langs.length - 1 && !isCancelled()) {
+                    await delay(opts.requestDelayMs, isCancelled);
+                }
             }
-            progress.setCounts(counts);
+
             progress.setProgress(i + 1, episodes.length, label);
 
             if (opts.requestDelayMs > 0 && i < episodes.length - 1 && !isCancelled()) {
@@ -890,10 +901,13 @@
             retryHandler: stillFailing
                 ? async () => {
                     progress.startRound(STR.progTitleRetry);
-                    const failedIds = new Set(result.failed.map(f => f.episodeId));
-                    await runRound(progress, opts, async () => {
+                    const langsByEpisode = {};
+                    result.failed.forEach(f => {
+                        (langsByEpisode[f.episodeId] = langsByEpisode[f.episodeId] || []).push(f.language);
+                    });
+                    await runRound(progress, { ...opts, languagesByEpisode: langsByEpisode }, async () => {
                         const all = await fetchEpsForRound();
-                        return all.filter(ep => failedIds.has(ep.Id));
+                        return all.filter(ep => langsByEpisode[ep.Id]);
                     }, { isRetry: true });
                 }
                 : null
@@ -1013,7 +1027,7 @@
                 const chosen = filterSelectedEpisodes(episodes, opts.episodeIds);
                 if (chosen.length === 0) return;
                 const fullOpts = {
-                    language: opts.language,
+                    languages: opts.languages,
                     skipExisting: opts.skipExisting,
                     topVariants: opts.topVariants,
                     maxRetries: typeof config.MaxRetries === 'number' && config.MaxRetries >= 0 ? Math.min(10, config.MaxRetries) : 2,
@@ -1187,7 +1201,7 @@
         _internals: {
             STR, debounce, delay, escHtml, defaultLanguage, alreadyHasSubtitle,
             epLabel, distinctSeasonsCount, filterSelectedEpisodes, errStatus, isRetryable, describeErr,
-            withRetry, processEpisode, runBatch, openOptionsDialog,
+            withRetry, processEpisode, runBatch, runRound, openOptionsDialog,
             openProgressDialog, injectButton, findButtonContainer,
             toast, themeColors, focusables, trapTab, loadCultures, mkLanguagePicker
         }

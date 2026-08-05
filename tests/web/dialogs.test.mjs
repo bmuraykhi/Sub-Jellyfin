@@ -34,32 +34,31 @@ describe('dialogs', () => {
             expect(langInput.value).toBe('eng');
         });
 
-        it('shows the error on an invalid language and resolves once corrected', async () => {
+        it('shows the error on an invalid language when adding, and adds once corrected', async () => {
             const subs = loadSeasonSubs();
             const I = subs._internals;
             const p = I.openOptionsDialog({
                 titleText: 't', scopeText: 's', defaultLang: 'eng',
                 defaultSkip: true, defaultVariants: 1
             });
-            let resolved = false;
-            p.then(() => { resolved = true; });
 
             const langInput = document.getElementById('season-subs-lang');
+            const addBtn = findByText('button', I.STR.dlgAddLanguage);
             const startBtn = findByText('button', I.STR.btnStart);
 
             langInput.value = 'xx';
-            startBtn.click();
-            await Promise.resolve();
+            addBtn.click();
 
             const errDiv = findByText('div', I.STR.dlgLangInvalid);
             expect(errDiv.style.display).toBe('block');
-            expect(resolved).toBe(false);
 
             langInput.value = 'fra';
-            startBtn.click();
+            addBtn.click();
+            expect(errDiv.style.display).toBe('none');
 
+            startBtn.click();
             const result = await p;
-            expect(result).toEqual({ language: 'fra', skipExisting: true, topVariants: 1 });
+            expect(result).toEqual({ languages: ['eng', 'fra'], skipExisting: true, topVariants: 1 });
         });
 
         it('resolves with null and removes the overlay on Escape', async () => {
@@ -198,19 +197,21 @@ describe('dialogs', () => {
             const I = subs._internals;
             openOptions(I);
             const startBtn = findByText('button', I.STR.btnStart);
+            const firstChipBtn = document.querySelector(`[aria-label="${I.STR.dlgRemoveLanguage('eng')}"]`);
             startBtn.focus();
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
-            expect(document.activeElement).toBe(document.getElementById('season-subs-lang'));
+            expect(document.activeElement).toBe(firstChipBtn);
         });
 
         it('wraps Shift+Tab from the first focusable to the last inside the options dialog', () => {
             const subs = loadSeasonSubs();
             const I = subs._internals;
             openOptions(I);
-            const langInput = document.getElementById('season-subs-lang');
-            langInput.focus();
+            const startBtn = findByText('button', I.STR.btnStart);
+            const firstChipBtn = document.querySelector(`[aria-label="${I.STR.dlgRemoveLanguage('eng')}"]`);
+            firstChipBtn.focus();
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }));
-            expect(document.activeElement).toBe(findByText('button', I.STR.btnStart));
+            expect(document.activeElement).toBe(startBtn);
         });
 
         it('falls back to the dark palette when no theme background is detected', () => {

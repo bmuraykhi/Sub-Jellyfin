@@ -105,7 +105,7 @@ describe('language picker', () => {
             { code: 'fra', label: 'French' }
         ];
 
-        it('submits the selected code from the dropdown', async () => {
+        it('adds the selected code from the dropdown as a language chip', async () => {
             const subs = loadSeasonSubs();
             const I = subs._internals;
             const p = I.openOptionsDialog({
@@ -115,33 +115,30 @@ describe('language picker', () => {
             const select = document.getElementById('season-subs-lang');
             expect(select.tagName).toBe('SELECT');
             select.value = 'fra';
+            findByText('button', I.STR.dlgAddLanguage).click();
             const startBtn = findByText('button', I.STR.btnStart);
             startBtn.click();
             const result = await p;
-            expect(result).toEqual({ language: 'fra', skipExisting: true, topVariants: 1 });
+            expect(result).toEqual({ languages: ['eng', 'fra'], skipExisting: true, topVariants: 1 });
         });
 
-        it('keeps the free-text fallback validation when cultures is null', async () => {
+        it('keeps the free-text fallback validation when cultures is null', () => {
             const subs = loadSeasonSubs();
             const I = subs._internals;
-            const p = I.openOptionsDialog({
+            I.openOptionsDialog({
                 titleText: 't', scopeText: 's', defaultLang: 'eng',
                 defaultSkip: true, defaultVariants: 1, cultures: null
             });
-            let resolved = false;
-            p.then(() => { resolved = true; });
 
             const input = document.getElementById('season-subs-lang');
             expect(input.tagName).toBe('INPUT');
-            const startBtn = findByText('button', I.STR.btnStart);
+            const addBtn = findByText('button', I.STR.dlgAddLanguage);
 
             input.value = 'xx';
-            startBtn.click();
-            await Promise.resolve();
+            addBtn.click();
 
             const errDiv = findByText('div', I.STR.dlgLangInvalid);
             expect(errDiv.style.display).toBe('block');
-            expect(resolved).toBe(false);
         });
     });
 });
