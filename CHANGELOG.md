@@ -8,6 +8,12 @@ compares internally.
 
 ## [Unreleased]
 
+### Changed
+
+- README now states that the released plugin links against Jellyfin's GPL-3.0
+  assemblies, so the distributed DLL and zip are a combined work under the
+  GPL-3.0. The repository's own source stays under The Unlicense.
+
 ## [2.0.0.0] – 2026-08-05
 
 ### Added

@@ -151,3 +151,9 @@ install** above.
 ## License
 
 The Unlicense (public domain) — see [LICENSE](LICENSE).
+
+That covers this repository's own source. The released plugin links against
+Jellyfin's GPL-3.0 `Jellyfin.Controller` and `Jellyfin.Model` assemblies, so
+the compiled DLL and the release zip are a combined work under the GPL-3.0.
+Reuse the source freely; redistributing the built plugin carries the GPL's
+terms.
