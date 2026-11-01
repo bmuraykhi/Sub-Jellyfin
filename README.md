@@ -58,14 +58,6 @@ Dashboard → Plugins → **Season Subtitle Downloader** sets what the dialog st
   If it says `File Transformation plugin not found`, install that plugin and restart. Then hard-refresh the browser.
 - **Everything says "no match":** check your subtitle provider's login and quota.
 
-## Manual install
-
-Unzip `season-subtitle-downloader.zip` from the [latest release](https://github.com/bmuraykhi/Sub-Jellyfin/releases/latest)
-into a `Season Subtitle Downloader_<version>` folder in Jellyfin's plugins folder (`/var/lib/jellyfin/plugins` on
-Linux, `/config/plugins` in Docker) and restart. To build it yourself with the .NET 9 SDK, run
-`dotnet publish Jellyfin.Plugin.SeasonSubtitles.csproj -c Release -o publish` and use the DLL with `meta.json` and
-`assets/icon.png`.
-
 ## License
 
 The source is under [The Unlicense](LICENSE). The built plugin links against Jellyfin's GPL-3.0 libraries, so the
