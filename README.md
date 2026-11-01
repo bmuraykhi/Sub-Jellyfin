@@ -16,11 +16,19 @@ Download subtitles for a whole season or series in one click, in as many languag
 ## Install
 
 You need Jellyfin 10.11 or newer, a working subtitle provider (such as the OpenSubtitles plugin) and the
-[File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) plugin, which is in the
-`https://www.iamparadox.dev/jellyfin/plugins/manifest.json` catalog.
+[File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) plugin. To get File
+Transformation, add its catalog the same way as in step 1 and install it from there:
+
+```
+https://www.iamparadox.dev/jellyfin/plugins/manifest.json
+```
 
 1. Dashboard → **Plugins** → **Manage Repositories** → **+**, and add
-   `https://raw.githubusercontent.com/bmuraykhi/jellyfin-plugins/main/manifest.json`
+
+   ```
+   https://raw.githubusercontent.com/bmuraykhi/jellyfin-plugins/main/manifest.json
+   ```
+
 2. **Catalog** → **Season Subtitle Downloader** → **Install**
 3. Restart Jellyfin and hard-refresh the browser (Ctrl/Cmd+Shift+R).
 
