@@ -35,8 +35,9 @@ public class InvariantTests
         Assert.False(string.IsNullOrEmpty(guid));
 
         using var manifestDoc = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepoRoot, "manifest.json")));
-        var manifestGuid = manifestDoc.RootElement.EnumerateArray().First().GetProperty("guid").GetString();
-        Assert.Equal(guid, manifestGuid);
+        // manifest.json is a catalog that can list other plugins too; this plugin just has to be in it.
+        var manifestGuids = manifestDoc.RootElement.EnumerateArray().Select(e => e.GetProperty("guid").GetString()).ToList();
+        Assert.Contains(guid, manifestGuids);
 
         var configPageText = File.ReadAllText(Path.Combine(RepoRoot, "Configuration", "configPage.html"));
         Assert.Contains(guid!, configPageText);

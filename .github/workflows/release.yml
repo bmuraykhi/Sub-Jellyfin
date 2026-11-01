@@ -136,15 +136,22 @@ jobs:
           SRC="https://github.com/${REPO}/releases/download/${TAG}/season-subtitle-downloader.zip"
           ABI="$(jq -r .targetAbi meta.json)"
           CHANGELOG="$(jq -r .changelog meta.json)"
+          GUID="$(jq -r .guid meta.json)"
           tmp=$(mktemp)
-          jq --arg v   "$VERSION" \
+          # manifest.json is a catalog that can list other plugins too: update only this plugin's entry.
+          jq --arg g   "$GUID" \
+             --arg v   "$VERSION" \
              --arg cl  "$CHANGELOG" \
              --arg s   "$SRC" \
              --arg c   "$MD5" \
              --arg t   "$TS" \
              --arg abi "$ABI" \
-             '.[0].versions |= ([{version:$v, changelog:$cl, targetAbi:$abi, sourceUrl:$s, checksum:$c, timestamp:$t}] + map(select(.version != $v)))' \
+             'map(if .guid == $g then .versions |= ([{version:$v, changelog:$cl, targetAbi:$abi, sourceUrl:$s, checksum:$c, timestamp:$t}] + map(select(.version != $v))) else . end)' \
              manifest.json > "$tmp"
+          if ! jq -e --arg g "$GUID" --arg v "$VERSION" 'any(.[]; .guid == $g and .versions[0].version == $v)' "$tmp" > /dev/null; then
+            echo "manifest.json has no entry with guid $GUID; nothing was updated." >&2
+            exit 1
+          fi
           mv "$tmp" manifest.json
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
