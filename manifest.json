@@ -2,19 +2,19 @@
   {
     "name": "Season Subtitle Downloader",
     "guid": "a3c0e5c3-7d0d-4b91-9d1c-2e6f9b3a1c5d",
-    "description": "Adds a 'Download Subs' button to season and series pages that batch-downloads subtitles for every episode, in one or more languages.",
-    "overview": "One-click subtitle downloads for a whole season or series, in as many languages as you need. Requires the File Transformation plugin.",
-    "imageUrl": "https://raw.githubusercontent.com/bmuraykhi/Sub-Jellyfin/main/assets/icon.png",
+    "description": "This catalog URL is retired and gets no more updates. To keep getting Season Subtitle Downloader updates, go to Dashboard → Plugins → Manage Repositories, add https://raw.githubusercontent.com/bmuraykhi/jellyfin-plugins/main/manifest.json and remove this one. The installed plugin stays installed. Adds a 'Download Subs' button to season and series pages that batch-downloads subtitles for every episode, in one or more languages.",
+    "overview": "This catalog URL is retired and gets no more updates. Add https://raw.githubusercontent.com/bmuraykhi/jellyfin-plugins/main/manifest.json instead.",
     "owner": "Bandar",
     "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/bmuraykhi/Sub-Jellyfin/main/assets/icon.png",
     "versions": [
       {
         "version": "3.0.0.0",
-        "changelog": "chore(release): prepare 3.0.0.0 notes",
+        "changelog": "**This catalog URL is retired.** To keep getting updates, add https://raw.githubusercontent.com/bmuraykhi/jellyfin-plugins/main/manifest.json under Manage Repositories and remove this one.\n\n### Changed\n\n- Redesigned the download and progress dialogs:\n  - A fixed header (with the show and season name) and footer, with the\n    content scrolling in between, so the dialog always fits the screen. On\n    phones it opens as a sheet from the bottom.\n  - Each chosen language is a row with its full name, how many episodes\n    already have it, and a small coverage bar.\n  - The episode list is a proper disclosure. Its checkboxes are visible, and\n    each episode shows which of the chosen languages it already has.\n  - Results show as four tiles (downloaded, skipped, no match, failed),\n    coloured when they need attention, with the failures and misses listed\n    below.\n  - Colours follow the active Jellyfin theme, including custom themes.\n- The **Download Subs** button shows an hourglass while it loads the episodes.\n- Enter on a button now presses that button instead of starting the run, and\n  Enter in the language-code field adds the language.\n- README shows a demo of a full run and screenshots, recorded with a made-up\n  show (`docs/demo/record_demo.py` regenerates them).\n- README now states that the released plugin links against Jellyfin's GPL-3.0\n  assemblies, so the distributed DLL and zip are a combined work under the\n  GPL-3.0. The repository's own source stays under The Unlicense.\n- The plugin is now also published in a catalog for all my plugins:\n  `https://raw.githubusercontent.com/bmuraykhi/jellyfin-plugins/main/manifest.json`.\n  The old URL keeps working and keeps getting updates. The release workflow\n  now updates this plugin's catalog entry by its id instead of assuming it is\n  the first one.\n\n### Fixed\n\n- The dialogs' secondary buttons (Add, Cancel, Close, the language and episode\n  controls) were unreadable on Jellyfin 12.4: light boxes with light text.\n- The episode checkboxes were invisible (Jellyfin hides inputs with its\n  `emby-checkbox` class unless they are its own custom element), so you could\n  not see which episodes were selected.\n- With the episode list open the dialog could grow taller than the window,\n  cutting off its title and last episodes.\n- On phones the progress dialog ran edge to edge, and the summary toast\n  covered the dialog's buttons.\n- Some themes pushed Start below Cancel.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v3.0.0.0/season-subtitle-downloader.zip",
         "checksum": "7EC4F9CBDCC49277F533163AD66DA59E",
-        "timestamp": "2026-11-01T16:37:38Z"
+        "timestamp": "2026-11-01T16:37:37Z"
       },
       {
         "version": "2.0.0.0",
@@ -22,71 +22,71 @@
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v2.0.0.0/season-subtitle-downloader.zip",
         "checksum": "AE104FE56A9CD8F6CD21F215265F43B3",
-        "timestamp": "2026-08-05T16:02:16Z"
+        "timestamp": "2026-08-05T16:02:14Z"
       },
       {
         "version": "1.0.2.0",
-        "changelog": "feat(release): ship icon.png in the plugin zip so My Plugins renders a logo",
+        "changelog": "### Added\n\n- Plugin icon now shows in both places Jellyfin renders one: the catalog tile\n  (`imageUrl` in `manifest.json`) and the installed-plugin tile under\n  Dashboard → Plugins → My Plugins (`imagePath` in `meta.json`, with\n  `icon.png` shipped inside the release zip).\n- Unit tests (IndexHtmlPatch, cross-file invariants) and ESLint gate in CI.\n\n### Changed\n\n- Relicensed from MIT to The Unlicense (public domain).\n- Releases now build from the tagged commit instead of `main`, publish the\n  GitHub Release before updating the catalog manifest, and pin all workflow\n  actions to commit SHAs.\n- Built against Jellyfin 10.11.11 packages while the minimum supported server\n  stays 10.11.0; verified against the OpenSubtitles plugin v24.\n\n### Fixed\n\n- Startup task no longer logs \"transformation registered\" when registration\n  actually failed silently (missing/renamed File Transformation API), and it\n  no longer appears as a user-disableable row in Dashboard → Scheduled Tasks.\n  `index.html` injection no longer leaks two bytes of whitespace into the page\n  on every File Transformation re-render, no longer mishandles an orphaned\n  open marker by swallowing unrelated markup on the next render, and now logs\n  a warning instead of silently no-opping on a missing `</body>` tag or an\n  empty embedded script resource.\n- Detail-page watcher no longer re-issues `getItem` every second forever on\n  pages that never get a button (Movie, Episode, Person). It also no longer\n  reuses a stale button's click handler after navigating between seasons on\n  a DOM node Jellyfin recycled, and button injection can no longer be\n  starved indefinitely on pages that mutate faster than the debounce window.\n- Progress dialog no longer gets permanently stuck: a failed \"Retry Failed\"\n  re-fetch (or any uncaught error starting a run) now lands in a closable\n  error state instead of leaving Cancel/Retry wired to nothing. Cancel now\n  interrupts retry backoff and the inter-episode delay within ~250 ms instead\n  of waiting out the full sleep (which could be minutes at high retry counts),\n  and the progress bar no longer snaps to 100% on cancel or reports an\n  episode as done before it's actually processed.\n- Plugin settings (`MaxRetries`, `RequestDelayMs`, `TopVariants`,\n  `DefaultLanguage`) are now clamped server-side on every write and XML load,\n  not just in the browser, closing the path where an out-of-range value sent\n  directly through the REST API degenerated the retry/delay backoff into an\n  unthrottled hammer or silently broke the Start button. The admin config\n  page no longer hangs behind a permanent spinner on a failed load/save, and\n  the options dialog now shows a visible message instead of silently\n  no-opping when the language code is invalid.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v1.0.2.0/season-subtitle-downloader.zip",
         "checksum": "D09105765AABB5B3C043771BF8A3FACD",
-        "timestamp": "2026-08-03T15:17:57Z"
+        "timestamp": "2026-08-03T15:17:56Z"
       },
       {
         "version": "1.0.1.5",
-        "changelog": "feat(web): add debug diagnostics and injection reliability improvements",
+        "changelog": "### Added\n\n- Debug diagnostics for the injected script, plus further Download Subs\n  button injection reliability improvements.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v1.0.1.5/season-subtitle-downloader.zip",
         "checksum": "357313A6B02628E79ADE4B03BEE637CB",
-        "timestamp": "2026-06-05T22:27:15Z"
+        "timestamp": "2026-06-05T22:27:21Z"
       },
       {
         "version": "1.0.1.4",
-        "changelog": "fix(web): improve Download Subs button injection reliability",
+        "changelog": "### Fixed\n\n- Improved Download Subs button injection reliability on detail pages.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v1.0.1.4/season-subtitle-downloader.zip",
         "checksum": "F5CEC2833F534B123558ADCD656BAA44",
-        "timestamp": "2026-06-05T21:50:28Z"
+        "timestamp": "2026-06-05T21:50:33Z"
       },
       {
         "version": "1.0.1.3",
-        "changelog": "feat: add top-N subtitle variants per episode (1-5)",
+        "changelog": "### Added\n\n- **Top-N variants per episode** — download the 1-5 highest-ranked subtitles\n  per episode in one pass instead of just the top one, giving you backup\n  candidates when the highest-ranked match doesn't sync. Configurable both as\n  a plugin-wide default and per-run from the options dialog. Default stays at\n  1 so existing behavior is unchanged.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v1.0.1.3/season-subtitle-downloader.zip",
         "checksum": "C8EDBEA94FB7261193F192C5928DAF84",
-        "timestamp": "2026-05-14T11:58:25Z"
+        "timestamp": "2026-05-14T11:58:30Z"
       },
       {
         "version": "1.0.1.2",
-        "changelog": "docs(readme): update badges and describe series-level subtitle support",
+        "changelog": "### Added\n\n- **Plugin admin configuration page** in Dashboard → Plugins → My Plugins.\n  Settings: default subtitle language, skip-existing default, max retries per\n  episode, and an inter-episode delay for strict providers.\n- **Cancel button** during a run. Esc also cancels.\n- **Per-episode failure visibility** — after a run, the dialog lists every\n  failed episode with its reason (HTTP status / error text) and every \"no\n  match\" episode by name.\n- **Retry Failed** button on the results panel. Re-runs only the episodes\n  that errored, fetches fresh metadata first, can be repeated until clean.\n- **Series-level Download Subs** button. On a TV series detail page, one click\n  fans out across every season in the series; the dialog shows the total\n  episode count and how many seasons it spans.\n- ARIA labels on injected buttons and Esc / Enter keyboard support on dialogs.\n\n### Changed\n\n- Progress now shows in a dedicated modal dialog with a progress bar, current\n  episode label, and live counts (was inline button text).\n- Remote-search and download calls retry with exponential backoff on transient\n  failures (network errors, 429, 5xx). Bails immediately on 4xx so bad\n  language codes or missing providers don't waste retries.\n- All user-facing strings centralized in a single `STR` object so a future\n  locale layer can swap them in one place.\n- README install path is now catalog-first; the manual file-drop is collapsed\n  into a fold-out \"only if you can't reach GitHub\" section.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v1.0.1.2/season-subtitle-downloader.zip",
         "checksum": "5505CA11FCF13F423852E51E175C8EBD",
-        "timestamp": "2026-05-08T22:23:34Z"
+        "timestamp": "2026-05-08T22:23:43Z"
       },
       {
         "version": "1.0.1.1",
-        "changelog": "docs(readme): simplify catalog install instructions and collapse manual fallback",
+        "changelog": "### Fixed\n\n- Release workflow now normalizes 3-part version tags (`v1.0.1`) into the\n  4-part format Jellyfin expects internally.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v1.0.1.1/season-subtitle-downloader.zip",
         "checksum": "42D0CD99680E6DD47645410A06C1CCCE",
-        "timestamp": "2026-05-07T20:37:14Z"
+        "timestamp": "2026-05-07T20:37:20Z"
       },
       {
         "version": "1.0.1",
-        "changelog": "docs(release): add catalog-based install flow and manual fallback",
+        "changelog": "### Added\n\n- Catalog manifest (`manifest.json`) so users can install via Dashboard →\n  Plugins → Repositories instead of dropping files in by hand.\n- Generic plugin icon (`assets/icon.png`).\n- Tag-driven release workflow that builds, computes the artifact MD5, prepends\n  a new entry to `manifest.json`, and commits it back to `main`.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v1.0.1/season-subtitle-downloader.zip",
         "checksum": "DE8151F02789D50ED9FB1A1A9A20AE95",
-        "timestamp": "2026-05-07T19:54:34Z"
+        "timestamp": "2026-05-07T19:54:39Z"
       },
       {
         "version": "1.0.0.0",
-        "changelog": "Initial release.",
+        "changelog": "### Added\n\n- Initial release. Adds a **Download Subs** button to season detail pages that\n  batch-downloads subtitles for every episode in the season using whichever\n  remote subtitle providers Jellyfin has configured. Sequential calls keep\n  things friendly with provider rate limits.",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/bmuraykhi/Sub-Jellyfin/releases/download/v0.1/season-subtitle-downloader.zip",
         "checksum": "8B283B0FDDA92CA254A7C4C22C92757C",
-        "timestamp": "2026-05-05T00:00:00Z"
+        "timestamp": "2026-05-05T10:12:34Z"
       }
     ]
   }
