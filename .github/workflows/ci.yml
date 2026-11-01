@@ -43,9 +43,4 @@ jobs:
         run: npm test
 
       - name: Validate manifest.json + meta.json
-        run: |
-          for f in manifest.json meta.json; do
-            python3 -c "import json,sys; json.load(open('$f'))" \
-              && echo "$f: OK" \
-              || (echo "$f: invalid JSON"; exit 1)
-          done
+        run: jq empty manifest.json meta.json
