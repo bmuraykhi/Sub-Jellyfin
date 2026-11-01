@@ -8,6 +8,16 @@ compares internally.
 
 ## [Unreleased]
 
+### Changed
+
+- The old catalog URL,
+  `https://raw.githubusercontent.com/bmuraykhi/Sub-Jellyfin/main/manifest.json`,
+  is retired and stops at 3.0.0.0. New versions are only published in the
+  shared catalog,
+  `https://raw.githubusercontent.com/bmuraykhi/jellyfin-plugins/main/manifest.json`.
+- The catalog shows this changelog's notes for every version, instead of
+  commit messages for the older ones.
+
 ## [3.0.0.0] – 2026-11-01
 
 ### Changed

@@ -45,8 +45,8 @@ One-time setup — after this, updates arrive as one-click upgrades from the cat
    ```
 
    This is the catalog for all my plugins. The old Sub-Jellyfin URL
-   (`https://raw.githubusercontent.com/bmuraykhi/Sub-Jellyfin/main/manifest.json`) still works and keeps getting this plugin's updates, but only
-   lists this plugin — switch to the new one to see the others.
+   (`https://raw.githubusercontent.com/bmuraykhi/Sub-Jellyfin/main/manifest.json`)
+   is retired and stops at 3.0.0.0. If you added it, replace it with this one.
 
 4. Save, then Dashboard → **Plugins** → **Catalog** → **Season Subtitle
    Downloader** (under *General*) → **Install**
