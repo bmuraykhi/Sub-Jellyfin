@@ -52,6 +52,16 @@ Dashboard → Plugins → **Season Subtitle Downloader** sets what the dialog st
 | Delay between episodes | 0 ms | raise it if your provider limits requests |
 | Variants per episode | 1 | download the 1–5 best matches |
 
+## How it works
+
+- File Transformation adds the plugin's script to Jellyfin's web page as it's served. No jellyfin-web files are
+  changed, so it keeps working after web client updates.
+- The script adds the **Download Subs** button and makes the same calls as Jellyfin's own subtitle search, one episode
+  at a time, through the subtitle providers you already have.
+- Subtitles are saved wherever Jellyfin normally saves them. The plugin only stores its settings.
+- Everything goes through your Jellyfin server. The plugin has no accounts, API keys or outside connections of its
+  own.
+
 ## Troubleshooting
 
 - **No Download Subs button:** Dashboard → Logs should show `Season Subtitle Downloader transformation registered.`
