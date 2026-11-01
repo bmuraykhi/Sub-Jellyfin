@@ -10,7 +10,7 @@ function coverageEl() {
 }
 
 function checkbox(id) {
-    return Array.from(document.querySelectorAll('.emby-checkbox')).find(c => c.dataset.episodeId === id);
+    return Array.from(document.querySelectorAll('.ssd-ep-check')).find(c => c.dataset.episodeId === id);
 }
 
 function ep(id, num, name, streams) {
@@ -85,7 +85,7 @@ describe('episode picker', () => {
             ep('e3', 3, 'C', [])
         ];
         openWithEpisodes(I, episodes);
-        const cbs = document.querySelectorAll('.emby-checkbox');
+        const cbs = document.querySelectorAll('.ssd-ep-check');
         expect(cbs.length).toBe(3);
         cbs.forEach(c => expect(c.checked).toBe(true));
         expect(findByText('button', I.STR.dlgEpisodesToggle(3, 3))).toBeTruthy();

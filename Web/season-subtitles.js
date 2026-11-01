@@ -32,23 +32,26 @@
         btnLabel: 'Download Subs',
         btnTitleSeason: 'Download subtitles for every episode in this season',
         btnTitleSeries: 'Download subtitles for every episode in this series',
-        dlgTitleSeason: 'Download subtitles for season',
-        dlgTitleSeries: 'Download subtitles for series',
-        dlgScopeSeason: (n) => `${n} episode${n === 1 ? '' : 's'} in this season.`,
-        dlgScopeSeries: (n, s) => `${n} episode${n === 1 ? '' : 's'} across ${s} season${s === 1 ? '' : 's'}.`,
-        dlgLangLabel: 'Language (3-letter ISO, e.g. eng, fra, heb)',
-        dlgLangSelectLabel: 'Subtitle language',
+        dlgTitleSeason: 'Download subtitles',
+        dlgTitleSeries: 'Download subtitles',
+        dlgScopeSeason: (n) => `${n} episode${n === 1 ? '' : 's'}`,
+        dlgScopeSeries: (n, s) => `${n} episode${n === 1 ? '' : 's'} across ${s} season${s === 1 ? '' : 's'}`,
+        dlgLangLabel: '3-letter language code, e.g. eng, fra, heb',
+        dlgLangSelectLabel: 'Add a language',
         dlgLangInvalid: 'Enter a 3-letter ISO 639-2 code, e.g. eng',
         dlgLanguagesLabel: 'Languages',
+        dlgOptionsLabel: 'Options',
+        dlgEpisodesLabel: 'Episodes',
         dlgAddLanguage: 'Add',
         dlgRemoveLanguage: (lang) => `Remove ${lang}`,
         dlgLanguagesRequired: 'Add at least one language',
+        dlgHasSubtitle: (name) => `Already has ${name} subtitles`,
         labelWithLang: (label, lang) => `${label} [${lang}]`,
-        dlgSkipLabel: 'Skip episodes that already have a subtitle in this language',
-        dlgVariantsLabel: 'Variants per episode (1-5)',
-        dlgVariantsHint: 'Pulls the top-N highest-ranked subtitles per episode. Useful when the top match often desyncs.',
+        dlgSkipLabel: 'Skip episodes that already have a subtitle in that language',
+        dlgVariantsLabel: 'Variants per episode',
+        dlgVariantsHint: 'Downloads the top 1–5 ranked subtitles for each episode. More than one helps when the best match is out of sync.',
         dlgCoverage: (have, total, lang) => `${have} of ${total} episode${total === 1 ? '' : 's'} already ${have === 1 ? 'has' : 'have'} ${lang} subtitles`,
-        dlgEpisodesToggle: (sel, total) => `Episodes (${sel} of ${total} selected)`,
+        dlgEpisodesToggle: (sel, total) => (sel === total ? `All ${total} episode${total === 1 ? '' : 's'}` : `${sel} of ${total} episodes`),
         dlgSelectAll: 'Select all',
         dlgSelectMissing: 'Only missing',
         dlgNoEpisodesSelected: 'Select at least one episode',
@@ -62,10 +65,14 @@
         progTitleCancelled: 'Cancelled',
         progTitleError: 'Error',
         retryNoMatch: 'No failed episodes matched — they may have been removed from the library',
-        countDownloaded: (n) => `✓ Downloaded: ${n}`,
-        countSkipped: (n) => `⤼ Skipped: ${n}`,
-        countMissing: (n) => `⌀ No match: ${n}`,
-        countFailed: (n) => `✗ Failed: ${n}`,
+        statDownloaded: 'Downloaded',
+        statSkipped: 'Skipped',
+        statMissing: 'No match',
+        statFailed: 'Failed',
+        countDownloaded: (n) => `${n} Downloaded`,
+        countSkipped: (n) => `${n} Skipped`,
+        countMissing: (n) => `${n} No match`,
+        countFailed: (n) => `${n} Failed`,
         cancelInProgress: 'Cancelling…',
         sectionFailed: 'Failed',
         sectionMissing: 'No match',
@@ -270,12 +277,129 @@
 
     // ---------- DOM helpers ----------
 
+    // ---------- look & feel ----------
+
+    // One stylesheet for both dialogs and the toast. Colours come from the active Jellyfin theme where it exposes
+    // them (--jf-palette-*) and otherwise from neutral greys that read on light and dark themes alike.
+    const STYLE_ID = 'season-subs-style';
+    const CSS = `
+.ssd-overlay{position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;
+  padding:16px;box-sizing:border-box;background:rgba(0,0,0,.6);animation:ssd-fade .15s ease-out}
+.ssd-dialog{--ssd-accent:var(--jf-palette-primary-main,#00a4dc);--ssd-soft:rgba(128,128,128,.13);
+  display:flex;flex-direction:column;width:min(540px,100%);max-height:100%;box-sizing:border-box;
+  border-radius:14px;border:1px solid rgba(128,128,128,.22);box-shadow:0 20px 60px rgba(0,0,0,.55);
+  font-family:inherit;line-height:1.45;overflow:hidden;animation:ssd-pop .18s ease-out}
+.ssd-head{padding:22px 24px 6px}
+.ssd-title{margin:0;font-size:1.35em;font-weight:500;line-height:1.25}
+.ssd-sub{margin-top:4px;font-size:.92em;opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ssd-sub:empty{display:none}
+.ssd-body{padding:6px 24px 10px;overflow-y:auto;overscroll-behavior:contain}
+.ssd-foot{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;padding:14px 24px 18px;
+  border-top:1px solid rgba(128,128,128,.18)}
+.ssd-section{margin-top:16px}
+.ssd-section-title{margin:0 0 8px;font-size:.75em;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
+.ssd-dialog .ssd-btn{padding:.55em 1.3em;border-radius:8px;font-weight:600;line-height:1.35}
+.ssd-langs{display:flex;flex-direction:column;gap:6px}
+.ssd-lang{display:flex;align-items:center;gap:12px;padding:8px 6px 8px 14px;border-radius:10px;background:var(--ssd-soft)}
+.ssd-lang-main{flex:1;min-width:0}
+.ssd-lang-name{font-weight:600}
+.ssd-lang-cov{font-size:.85em;opacity:.7}
+.ssd-meter{flex:none;width:72px;height:6px;border-radius:3px;background:rgba(128,128,128,.28);overflow:hidden}
+.ssd-meter>span{display:block;height:100%;border-radius:3px;background:var(--ssd-accent)}
+.ssd-icon-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;
+  padding:0;border:0;border-radius:50%;background:transparent;color:inherit;cursor:pointer;opacity:.7}
+.ssd-icon-btn:hover{opacity:1;background:rgba(128,128,128,.22)}
+.ssd-add{display:flex;gap:8px;align-items:stretch;margin-top:10px}
+.ssd-dialog .ssd-field{flex:1;min-width:0;box-sizing:border-box;margin:0;padding:.55em .8em;border-radius:8px;
+  border:1px solid rgba(128,128,128,.45);background:transparent;color:inherit;font:inherit}
+.ssd-dialog .ssd-field:focus{border-color:var(--ssd-accent);outline:none}
+.ssd-dialog select.ssd-field option{color:initial}
+.ssd-dialog input[type=checkbox]{flex:none;width:18px;height:18px;margin:0;accent-color:var(--ssd-accent);cursor:pointer}
+.ssd-check{display:flex;align-items:flex-start;gap:12px;cursor:pointer}
+.ssd-check>input{margin-top:2px}
+.ssd-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px}
+.ssd-dialog .ssd-num{flex:none;width:76px;text-align:center}
+.ssd-hint{margin-top:6px;font-size:.85em;opacity:.65}
+.ssd-error{margin-top:8px;color:#ef5350;font-size:.88em}
+.ssd-disclosure{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:0;
+  padding:.7em 14px;border:0;border-radius:10px;background:var(--ssd-soft);color:inherit;font:inherit;
+  font-weight:600;text-align:left;cursor:pointer}
+.ssd-disclosure:hover{background:rgba(128,128,128,.2)}
+.ssd-disclosure::after{content:'';flex:none;width:7px;height:7px;margin:-4px 4px 0 0;border-right:2px solid currentColor;
+  border-bottom:2px solid currentColor;transform:rotate(45deg);opacity:.7;transition:transform .15s}
+.ssd-disclosure[aria-expanded=true]::after{transform:rotate(-135deg);margin-top:4px}
+.ssd-links{display:flex;gap:4px;margin:8px 0 6px}
+.ssd-link{margin:0;padding:.35em .7em;border:0;border-radius:6px;background:transparent;color:var(--ssd-accent);
+  font:inherit;font-size:.9em;font-weight:600;cursor:pointer}
+.ssd-link:hover{background:rgba(128,128,128,.15)}
+.ssd-eps{max-height:min(240px,32vh);overflow-y:auto;padding:4px;border-radius:10px;background:rgba(128,128,128,.08)}
+.ssd-ep{display:flex;align-items:center;gap:12px;padding:7px 10px;border-radius:7px;cursor:pointer}
+.ssd-ep:hover{background:rgba(128,128,128,.13)}
+.ssd-ep-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ssd-badges{display:flex;gap:4px;flex:none}
+.ssd-badge{padding:1px 7px;border-radius:5px;background:rgba(128,128,128,.25);font-size:.75em;font-weight:700;
+  letter-spacing:.03em}
+.ssd-bar{height:6px;margin-top:14px;border-radius:3px;background:rgba(128,128,128,.25);overflow:hidden}
+.ssd-bar>div{height:100%;width:0;border-radius:3px;background:var(--ssd-accent);transition:width .25s}
+.ssd-bar.is-muted>div{background:rgba(128,128,128,.6)}
+.ssd-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}
+.ssd-stat{padding:10px 12px;border-radius:10px;background:var(--ssd-soft)}
+.ssd-stat-num{display:block;font-size:1.55em;font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums}
+.ssd-stat-label{display:block;font-size:.8em;opacity:.7}
+.ssd-stat.is-ok .ssd-stat-num{color:#4caf50}
+.ssd-stat.is-warn .ssd-stat-num{color:#ffa726}
+.ssd-stat.is-bad .ssd-stat-num{color:#ef5350}
+.ssd-results{margin-top:14px;max-height:min(200px,28vh);overflow-y:auto;padding:4px 14px 10px;border-radius:10px;
+  background:rgba(128,128,128,.08);font-size:.92em}
+.ssd-results h4{margin:10px 0 4px;font-size:.75em;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
+.ssd-result{padding:2px 0}
+.ssd-result-reason{opacity:.6}
+.ssd-toast{position:fixed;right:20px;bottom:20px;z-index:99999;max-width:380px;padding:12px 16px;border-radius:10px;
+  background:rgba(24,24,24,.96);color:#fff;border:1px solid rgba(255,255,255,.1);box-shadow:0 6px 24px rgba(0,0,0,.4);
+  font-size:14px;line-height:1.4;animation:ssd-pop .18s ease-out}
+@media (max-width:600px){
+  .ssd-overlay{padding:0;align-items:flex-end}
+  .ssd-dialog{width:100%;max-height:92%;border-radius:18px 18px 0 0;border-width:1px 0 0}
+  .ssd-head{padding:20px 18px 4px}.ssd-body{padding:4px 18px 10px}
+  .ssd-foot{padding:12px 18px calc(14px + env(safe-area-inset-bottom,0px))}
+  .ssd-stats{grid-template-columns:repeat(2,1fr)}
+  .ssd-meter{width:48px}
+  .ssd-toast{left:12px;right:12px;top:calc(12px + env(safe-area-inset-top,0px));bottom:auto;max-width:none}
+}
+@keyframes ssd-fade{from{opacity:0}}
+@keyframes ssd-pop{from{opacity:0;transform:translateY(10px) scale(.985)}}
+@media (prefers-reduced-motion:reduce){.ssd-overlay,.ssd-dialog,.ssd-toast{animation:none}}
+`;
+
+    function ensureStyles() {
+        if (document.getElementById(STYLE_ID)) return;
+        const style = document.createElement('style');
+        style.id = STYLE_ID;
+        style.textContent = CSS;
+        (document.head || document.documentElement).appendChild(style);
+    }
+
+    const ICON_CLOSE = 'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z';
+
+    function svgIcon(path) {
+        const ns = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(ns, 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('width', '18');
+        svg.setAttribute('height', '18');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('focusable', 'false');
+        const p = document.createElementNS(ns, 'path');
+        p.setAttribute('d', path);
+        p.setAttribute('fill', 'currentColor');
+        svg.appendChild(p);
+        return svg;
+    }
+
     function mkOverlay() {
+        ensureStyles();
         const o = document.createElement('div');
-        Object.assign(o.style, {
-            position: 'fixed', inset: '0', background: 'rgba(0,0,0,0.6)',
-            zIndex: 99998, display: 'flex', alignItems: 'center', justifyContent: 'center'
-        });
+        o.className = 'ssd-overlay';
         return o;
     }
 
@@ -312,21 +436,56 @@
 
     function mkBox() {
         const b = document.createElement('div');
+        b.className = 'ssd-dialog';
         const t = themeColors();
-        Object.assign(b.style, {
-            background: t ? t.bg : '#1f1f1f', color: t ? t.fg : '#fff', padding: '20px 24px',
-            borderRadius: '10px', minWidth: '340px', maxWidth: '460px',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.5)', fontFamily: 'inherit'
-        });
+        b.style.background = t ? t.bg : '#1f1f1f';
+        b.style.color = t ? t.fg : '#fff';
         return b;
+    }
+
+    // A dialog frame: header (title + one-line subtitle), scrolling body, footer for the buttons.
+    function mkDialog(titleId, titleText, subText) {
+        const overlay = mkOverlay();
+        overlay.setAttribute('role', 'presentation');
+        const box = mkBox();
+        box.setAttribute('role', 'dialog');
+        box.setAttribute('aria-modal', 'true');
+        box.setAttribute('aria-labelledby', titleId);
+        const head = el('div', { className: 'ssd-head' });
+        const title = el('h3', { id: titleId, className: 'ssd-title' }, titleText);
+        const sub = el('div', { className: 'ssd-sub' }, subText || '');
+        head.append(title, sub);
+        const body = el('div', { className: 'ssd-body' });
+        const foot = el('div', { className: 'ssd-foot' });
+        box.append(head, body, foot);
+        overlay.appendChild(box);
+        return { overlay, box, title, sub, body, foot };
+    }
+
+    function mkSection(titleText) {
+        const section = el('div', { className: 'ssd-section' });
+        section.appendChild(el('h4', { className: 'ssd-section-title' }, titleText));
+        return section;
     }
 
     function mkButton(label, primary) {
         const b = document.createElement('button');
         b.type = 'button';
         b.textContent = label;
-        b.className = 'emby-button' + (primary ? ' button-submit' : '');
-        b.style.cssText = 'padding:6px 14px; border-radius:6px;';
+        // 'raised' is what jellyfin-web's own dialog buttons use: it gives secondary buttons the theme's button colours.
+        // Without it they fall back to the browser's light default button with the dialog's light text on top.
+        b.className = 'emby-button raised ssd-btn' + (primary ? ' button-submit' : '');
+        // The footer spaces its buttons with `gap`. Some themes give .button-submit a large !important top margin
+        // (meant for full-page forms), which would push the primary button out of line, so override it here.
+        b.style.setProperty('margin', '0', 'important');
+        return b;
+    }
+
+    function mkLinkButton(label) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ssd-link';
+        b.textContent = label;
         return b;
     }
 
@@ -345,18 +504,12 @@
     }
 
     function toast(message, ms = 4000) {
+        ensureStyles();
         const t = document.createElement('div');
+        t.className = 'ssd-toast';
         t.textContent = message;
         t.setAttribute('role', 'status');
         t.setAttribute('aria-live', 'polite');
-        Object.assign(t.style, {
-            position: 'fixed', bottom: '20px', right: '20px', zIndex: 99999,
-            background: 'rgba(20,20,20,0.95)', color: '#fff',
-            padding: '10px 14px', borderRadius: '8px',
-            border: '1px solid rgba(255,255,255,0.1)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-            fontSize: '14px', maxWidth: '360px'
-        });
         document.body.appendChild(t);
         setTimeout(() => t.remove(), ms);
     }
@@ -364,12 +517,13 @@
     // ---------- options dialog ----------
 
     function mkLanguagePicker({ cultures, initial }) {
-        const style = 'width:100%; padding:6px 8px; border-radius:6px; border:1px solid rgba(128,128,128,0.5); background:transparent; color:inherit; margin-bottom:6px; box-sizing:border-box;';
         if (!cultures || cultures.length === 0) {
             const input = el('input', {
                 id: 'season-subs-lang', type: 'text', maxLength: 3, autocomplete: 'off',
-                className: 'emby-input', style
+                className: 'emby-input ssd-field', placeholder: 'eng'
             });
+            input.setAttribute('aria-label', STR.dlgLangLabel);
+            input.title = STR.dlgLangLabel;
             input.value = initial;
             return {
                 el: input,
@@ -386,8 +540,8 @@
         }
         select.setAttribute('is', 'emby-select');
         select.id = 'season-subs-lang';
-        select.className = 'emby-select';
-        select.style.cssText = style;
+        select.className = 'emby-select ssd-field';
+        select.setAttribute('aria-label', STR.dlgLangSelectLabel);
         let hasInitial = false;
         cultures.forEach(c => {
             const opt = document.createElement('option');
@@ -413,81 +567,57 @@
 
     function openOptionsDialog({ titleText, scopeText, defaultLang, defaultSkip, defaultVariants, cultures, episodes = [] }) {
         return new Promise(resolve => {
-            const overlay = mkOverlay();
-            overlay.setAttribute('role', 'presentation');
-            const box = mkBox();
-            box.setAttribute('role', 'dialog');
-            box.setAttribute('aria-modal', 'true');
-            box.setAttribute('aria-labelledby', 'season-subs-options-title');
+            const { overlay, box, body, foot } = mkDialog('season-subs-options-title', titleText, scopeText);
             const prevFocus = document.activeElement;
             let selectedLanguages = [defaultLang];
+            const names = {};
+            (cultures || []).forEach(c => { names[c.code] = c.label; });
+            const langName = code => names[code] || code;
 
-            const title = el('h3', { id: 'season-subs-options-title', style: 'margin:0 0 12px 0;' }, titleText);
-            const sub = el(
-                'div',
-                { style: 'opacity:0.75; font-size:13px; margin-bottom:14px;' },
-                scopeText
-            );
-            const coverage = el('div', { style: 'opacity:0.75; font-size:13px; margin-bottom:10px;' });
-
+            // --- Languages: one row per language with its current coverage, then the picker to add more.
+            const langSection = mkSection(STR.dlgLanguagesLabel);
+            const langList = el('div', { className: 'ssd-langs' });
             const langPicker = mkLanguagePicker({ cultures, initial: defaultLang });
-            const langLabel = el(
-                'label',
-                { style: 'display:block; font-size:13px; margin-bottom:6px;', htmlFor: 'season-subs-lang' },
-                langPicker.isSelect ? STR.dlgLangSelectLabel : STR.dlgLangLabel
-            );
-            const langError = el(
-                'div',
-                { style: 'display:none; color:#e57373; font-size:12px; margin-bottom:8px;' },
-                STR.dlgLangInvalid
-            );
+            const addBtn = mkButton(STR.dlgAddLanguage, false);
+            const addRow = el('div', { className: 'ssd-add' });
+            addRow.append(langPicker.el, addBtn);
+            const langError = el('div', { className: 'ssd-error', style: 'display:none;' }, STR.dlgLangInvalid);
+            const languagesError = el('div', { className: 'ssd-error', style: 'display:none;' }, STR.dlgLanguagesRequired);
             langPicker.onChange(() => {
                 langError.style.display = 'none';
                 langPicker.el.removeAttribute('aria-invalid');
             });
 
-            function updateCoverage() {
-                coverage.innerHTML = '';
+            function renderLanguages() {
+                langList.innerHTML = '';
                 selectedLanguages.forEach(lang => {
-                    const have = episodes.filter(ep => alreadyHasSubtitle(ep, lang)).length;
-                    coverage.appendChild(el('div', null, STR.dlgCoverage(have, episodes.length, lang)));
-                });
-            }
-
-            const languagesHeading = el(
-                'div',
-                { style: 'font-size:13px; margin-bottom:6px; opacity:0.85;' },
-                STR.dlgLanguagesLabel
-            );
-            const chipsBox = el('div', { style: 'display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;' });
-            const languagesError = el(
-                'div',
-                { style: 'display:none; color:#e57373; font-size:12px; margin-bottom:8px;' },
-                STR.dlgLanguagesRequired
-            );
-
-            function renderChips() {
-                chipsBox.innerHTML = '';
-                selectedLanguages.forEach(lang => {
-                    const chip = mkButton(`${lang} ✕`, false);
-                    chip.setAttribute('aria-label', STR.dlgRemoveLanguage(lang));
-                    Object.assign(chip.style, { padding: '4px 10px', fontSize: '12px' });
-                    chip.onclick = () => {
+                    const row = el('div', { className: 'ssd-lang' });
+                    const main = el('div', { className: 'ssd-lang-main' });
+                    main.appendChild(el('div', { className: 'ssd-lang-name' }, langName(lang)));
+                    row.appendChild(main);
+                    if (episodes.length > 0) {
+                        const have = episodes.filter(ep => alreadyHasSubtitle(ep, lang)).length;
+                        main.appendChild(el('div', { className: 'ssd-lang-cov' }, STR.dlgCoverage(have, episodes.length, lang)));
+                        const meter = el('div', { className: 'ssd-meter' });
+                        meter.setAttribute('aria-hidden', 'true');
+                        const fill = el('span');
+                        fill.style.width = Math.round((have / episodes.length) * 100) + '%';
+                        meter.appendChild(fill);
+                        row.appendChild(meter);
+                    }
+                    const remove = el('button', { type: 'button', className: 'ssd-icon-btn', title: STR.dlgRemoveLanguage(lang) });
+                    remove.setAttribute('aria-label', STR.dlgRemoveLanguage(lang));
+                    remove.appendChild(svgIcon(ICON_CLOSE));
+                    remove.onclick = () => {
                         selectedLanguages = selectedLanguages.filter(l => l !== lang);
-                        renderChips();
-                        updateCoverage();
+                        renderLanguages();
+                        renderBadges();
                         languagesError.style.display = 'none';
                     };
-                    chipsBox.appendChild(chip);
+                    row.appendChild(remove);
+                    langList.appendChild(row);
                 });
             }
-            renderChips();
-            updateCoverage();
-
-            const addBtn = mkButton(STR.dlgAddLanguage, false);
-            Object.assign(addBtn.style, { padding: '6px 14px', fontSize: '13px' });
-            const addRow = el('div', { style: 'display:flex; gap:6px; align-items:flex-start; margin-bottom:6px;' });
-            addRow.append(langPicker.el, addBtn);
 
             function addLanguage() {
                 const lang = langPicker.getValue();
@@ -502,102 +632,112 @@
                 langPicker.el.removeAttribute('aria-invalid');
                 if (selectedLanguages.indexOf(lang) === -1) {
                     selectedLanguages.push(lang);
-                    renderChips();
-                    updateCoverage();
+                    renderLanguages();
+                    renderBadges();
                     languagesError.style.display = 'none';
                 }
                 if (!langPicker.isSelect) langPicker.el.value = '';
             }
             addBtn.onclick = addLanguage;
 
-            const skipRow = el('label', { style: 'display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:14px;' });
+            langSection.append(langList, addRow);
+            if (!langPicker.isSelect) langSection.appendChild(langError);
+            langSection.appendChild(languagesError);
+
+            // --- Options
+            const optSection = mkSection(STR.dlgOptionsLabel);
+            const skipRow = el('label', { className: 'ssd-check' });
             const skipCb = el('input', { type: 'checkbox' });
             skipCb.checked = !!defaultSkip;
-            skipRow.appendChild(skipCb);
-            skipRow.appendChild(document.createTextNode(STR.dlgSkipLabel));
-
-            const variantsLabel = el(
-                'label',
-                { style: 'display:block; font-size:13px; margin-bottom:6px;', htmlFor: 'season-subs-variants' },
-                STR.dlgVariantsLabel
-            );
+            skipRow.append(skipCb, el('span', null, STR.dlgSkipLabel));
+            const variantsRow = el('div', { className: 'ssd-row' });
+            const variantsLabel = el('label', { htmlFor: 'season-subs-variants' }, STR.dlgVariantsLabel);
             const variantsInput = el('input', {
                 id: 'season-subs-variants', type: 'number', min: 1, max: 5, step: 1,
-                className: 'emby-input',
-                style: 'width:90px; padding:6px 8px; border-radius:6px; border:1px solid rgba(128,128,128,0.5); background:transparent; color:inherit; box-sizing:border-box;'
+                className: 'emby-input ssd-field ssd-num'
             });
             variantsInput.value = String(Math.min(5, Math.max(1, parseInt(defaultVariants, 10) || 1)));
-            const variantsHint = el(
-                'div',
-                { style: 'opacity:0.65; font-size:12px; margin-top:4px; margin-bottom:18px;' },
-                STR.dlgVariantsHint
-            );
+            variantsRow.append(variantsLabel, variantsInput);
+            optSection.append(skipRow, variantsRow, el('div', { className: 'ssd-hint' }, STR.dlgVariantsHint));
 
-            const listBox = el('div', {
-                style: 'font-size:13px; line-height:1.6; max-height:180px; overflow-y:auto; margin-bottom:8px; padding:8px 10px; background:rgba(128,128,128,0.12); border-radius:6px;'
-            });
-            const rows = episodes.map(ep => {
-                const cb = el('input', { type: 'checkbox', className: 'emby-checkbox' });
-                cb.checked = true;
-                cb.dataset.episodeId = ep.Id;
-                const row = el('label', { style: 'display:flex; align-items:center; gap:8px; padding:3px 0;' });
-                row.appendChild(cb);
-                row.appendChild(document.createTextNode(epLabel(ep)));
-                listBox.appendChild(row);
-                return { ep, cb };
-            });
+            // --- Episodes: collapsed by default; each row shows which chosen languages it already has.
+            const rows = [];
+            const noEpisodesError = el('div', { className: 'ssd-error', style: 'display:none;' }, STR.dlgNoEpisodesSelected);
+            const selectedCount = () => rows.filter(r => r.cb.checked).length;
+            let epSection = null;
+            let toggleBtn = null;
 
-            const actionsRow = el('div', { style: 'display:flex; gap:8px; margin-bottom:8px;' });
-            const selectAllBtn = mkButton(STR.dlgSelectAll, false);
-            const selectMissingBtn = mkButton(STR.dlgSelectMissing, false);
-            Object.assign(selectAllBtn.style, { padding: '4px 10px', fontSize: '12px' });
-            Object.assign(selectMissingBtn.style, { padding: '4px 10px', fontSize: '12px' });
-            actionsRow.append(selectAllBtn, selectMissingBtn);
-
-            const listWrap = el('div', { style: 'display:none; margin-bottom:8px;' });
-            listWrap.dataset.seasonSubsCollapsed = '1';
-            listWrap.append(actionsRow, listBox);
-
-            const noEpisodesError = el(
-                'div',
-                { style: 'display:none; color:#e57373; font-size:12px; margin-bottom:8px;' },
-                STR.dlgNoEpisodesSelected
-            );
-
-            function selectedCount() {
-                return rows.filter(r => r.cb.checked).length;
+            function renderBadges() {
+                rows.forEach(r => {
+                    r.badges.innerHTML = '';
+                    selectedLanguages.filter(lang => alreadyHasSubtitle(r.ep, lang)).forEach(lang => {
+                        r.badges.appendChild(el('span', { className: 'ssd-badge', title: STR.dlgHasSubtitle(langName(lang)) }, lang));
+                    });
+                });
             }
-            const toggleBtn = mkButton(STR.dlgEpisodesToggle(selectedCount(), episodes.length), false);
-            Object.assign(toggleBtn.style, { width: '100%', textAlign: 'left', marginTop: '4px', marginBottom: '8px' });
             function refreshToggleLabel() {
-                toggleBtn.textContent = STR.dlgEpisodesToggle(selectedCount(), episodes.length);
+                if (toggleBtn) toggleBtn.textContent = STR.dlgEpisodesToggle(selectedCount(), episodes.length);
             }
-            toggleBtn.onclick = () => {
-                const collapsed = listWrap.style.display === 'none';
-                if (collapsed) {
-                    listWrap.style.display = '';
-                    delete listWrap.dataset.seasonSubsCollapsed;
-                } else {
-                    listWrap.style.display = 'none';
-                    listWrap.dataset.seasonSubsCollapsed = '1';
-                }
-            };
-            listBox.addEventListener('change', () => {
-                refreshToggleLabel();
-                noEpisodesError.style.display = 'none';
-            });
-            selectAllBtn.onclick = () => {
-                rows.forEach(r => { r.cb.checked = true; });
-                refreshToggleLabel();
-                noEpisodesError.style.display = 'none';
-            };
-            selectMissingBtn.onclick = () => {
-                rows.forEach(r => { r.cb.checked = selectedLanguages.some(lang => !alreadyHasSubtitle(r.ep, lang)); });
-                refreshToggleLabel();
-                noEpisodesError.style.display = 'none';
-            };
 
-            const buttons = el('div', { style: 'display:flex; justify-content:flex-end; gap:10px;' });
+            if (episodes.length > 0) {
+                epSection = mkSection(STR.dlgEpisodesLabel);
+                const listBox = el('div', { className: 'ssd-eps', id: 'season-subs-episodes' });
+                episodes.forEach(ep => {
+                    const cb = el('input', { type: 'checkbox', className: 'ssd-ep-check' });
+                    cb.checked = true;
+                    cb.dataset.episodeId = ep.Id;
+                    const row = el('label', { className: 'ssd-ep' });
+                    const badges = el('span', { className: 'ssd-badges' });
+                    row.append(cb, el('span', { className: 'ssd-ep-name' }, epLabel(ep)), badges);
+                    listBox.appendChild(row);
+                    rows.push({ ep, cb, badges });
+                });
+
+                const selectAllBtn = mkLinkButton(STR.dlgSelectAll);
+                const selectMissingBtn = mkLinkButton(STR.dlgSelectMissing);
+                const actionsRow = el('div', { className: 'ssd-links' });
+                actionsRow.append(selectAllBtn, selectMissingBtn);
+
+                const listWrap = el('div', { style: 'display:none;' });
+                listWrap.dataset.seasonSubsCollapsed = '1';
+                listWrap.append(actionsRow, listBox);
+
+                toggleBtn = el('button', { type: 'button', className: 'ssd-disclosure' });
+                toggleBtn.setAttribute('aria-expanded', 'false');
+                toggleBtn.setAttribute('aria-controls', 'season-subs-episodes');
+                refreshToggleLabel();
+                toggleBtn.onclick = () => {
+                    const collapsed = listWrap.style.display === 'none';
+                    listWrap.style.display = collapsed ? '' : 'none';
+                    toggleBtn.setAttribute('aria-expanded', String(collapsed));
+                    if (collapsed) {
+                        delete listWrap.dataset.seasonSubsCollapsed;
+                        if (listWrap.scrollIntoView) listWrap.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    } else {
+                        listWrap.dataset.seasonSubsCollapsed = '1';
+                    }
+                };
+                listBox.addEventListener('change', () => {
+                    refreshToggleLabel();
+                    noEpisodesError.style.display = 'none';
+                });
+                selectAllBtn.onclick = () => {
+                    rows.forEach(r => { r.cb.checked = true; });
+                    refreshToggleLabel();
+                    noEpisodesError.style.display = 'none';
+                };
+                selectMissingBtn.onclick = () => {
+                    rows.forEach(r => { r.cb.checked = selectedLanguages.some(lang => !alreadyHasSubtitle(r.ep, lang)); });
+                    refreshToggleLabel();
+                    noEpisodesError.style.display = 'none';
+                };
+                epSection.append(toggleBtn, listWrap, noEpisodesError);
+            }
+
+            renderLanguages();
+            renderBadges();
+
+            // --- Footer
             const cancelBtn = mkButton(STR.btnCancel, false);
             const startBtn = mkButton(STR.btnStart, true);
 
@@ -629,8 +769,14 @@
             }
             function onKey(e) {
                 trapTab(box, e);
-                if (e.key === 'Escape') { e.preventDefault(); close(null); }
-                else if (e.key === 'Enter' && document.activeElement !== cancelBtn) { e.preventDefault(); submit(); }
+                if (e.key === 'Escape') { e.preventDefault(); close(null); return; }
+                if (e.key !== 'Enter') return;
+                const active = document.activeElement;
+                // Enter on a button presses that button; in the language code field it adds the language.
+                if (active && active.tagName === 'BUTTON' && active !== startBtn) return;
+                e.preventDefault();
+                if (active === langPicker.el && !langPicker.isSelect) addLanguage();
+                else submit();
             }
 
             cancelBtn.onclick = () => close(null);
@@ -638,13 +784,9 @@
             overlay.addEventListener('click', e => { if (e.target === overlay) close(null); });
             document.addEventListener('keydown', onKey);
 
-            buttons.appendChild(cancelBtn);
-            buttons.appendChild(startBtn);
-            const boxChildren = [title, sub, coverage, languagesHeading, chipsBox, langLabel, addRow];
-            if (!langPicker.isSelect) boxChildren.push(langError);
-            boxChildren.push(languagesError, skipRow, variantsLabel, variantsInput, variantsHint, toggleBtn, listWrap, noEpisodesError, buttons);
-            box.append(...boxChildren);
-            overlay.appendChild(box);
+            body.append(langSection, optSection);
+            if (epSection) body.appendChild(epSection);
+            foot.append(cancelBtn, startBtn);
             document.body.appendChild(overlay);
             setTimeout(() => {
                 langPicker.el.focus();
@@ -656,43 +798,42 @@
     // ---------- progress dialog ----------
 
     function openProgressDialog() {
-        const overlay = mkOverlay();
-        overlay.setAttribute('role', 'presentation');
-        const box = mkBox();
-        box.style.minWidth = '400px';
-        box.setAttribute('role', 'dialog');
-        box.setAttribute('aria-modal', 'true');
-        box.setAttribute('aria-labelledby', 'season-subs-progress-title');
+        const { overlay, box, title, sub: current, body, foot } = mkDialog('season-subs-progress-title', STR.progTitle, '');
         const prevFocus = document.activeElement;
 
-        const title = el('h3', { id: 'season-subs-progress-title', style: 'margin:0 0 8px 0;' }, STR.progTitle);
-        const current = el('div', { style: 'font-size:13px; margin-bottom:6px; min-height:18px; opacity:0.85;' }, '');
+        const bar = el('div', { className: 'ssd-bar' });
+        bar.setAttribute('role', 'progressbar');
+        bar.setAttribute('aria-valuemin', '0');
+        bar.setAttribute('aria-valuemax', '100');
+        bar.setAttribute('aria-valuenow', '0');
+        bar.setAttribute('aria-labelledby', 'season-subs-progress-title');
+        const barInner = el('div');
+        bar.appendChild(barInner);
 
-        const barOuter = el('div', { style: 'width:100%; height:8px; background:rgba(128,128,128,0.25); border-radius:4px; overflow:hidden; margin-bottom:14px;' });
-        const barInner = el('div', { style: 'height:100%; width:0%; background:#aa5cc3; transition:width 0.2s;' });
-        barOuter.appendChild(barInner);
+        // Four tiles; each tile's text reads e.g. "3 Downloaded" (number, space, label).
+        const stats = el('div', { className: 'ssd-stats' });
+        function mkStat(label) {
+            const tile = el('div', { className: 'ssd-stat' });
+            const num = el('span', { className: 'ssd-stat-num' }, '0');
+            tile.append(num, document.createTextNode(' '), el('span', { className: 'ssd-stat-label' }, label));
+            stats.appendChild(tile);
+            return { tile, num };
+        }
+        const sDl = mkStat(STR.statDownloaded);
+        const sSk = mkStat(STR.statSkipped);
+        const sMs = mkStat(STR.statMissing);
+        const sFl = mkStat(STR.statFailed);
 
-        const counts = el('div', { style: 'font-size:13px; line-height:1.7; margin-bottom:10px;' });
-        const cDl = el('div', null, STR.countDownloaded(0));
-        const cSk = el('div', null, STR.countSkipped(0));
-        const cMs = el('div', null, STR.countMissing(0));
-        const cFl = el('div', null, STR.countFailed(0));
-        counts.append(cDl, cSk, cMs, cFl);
+        const failBox = el('div', { className: 'ssd-results', style: 'display:none;' });
 
-        const failBox = el('div', {
-            style: 'font-size:13px; line-height:1.5; max-height:160px; overflow-y:auto; margin-bottom:14px; display:none; padding:8px 10px; background:rgba(128,128,128,0.12); border-radius:6px;'
-        });
-
-        const buttons = el('div', { style: 'display:flex; justify-content:flex-end; gap:10px;' });
         const retryBtn = mkButton(STR.btnRetry, true);
         const cancelBtn = mkButton(STR.btnCancel, false);
         const closeBtn = mkButton(STR.btnClose, false);
         retryBtn.style.display = 'none';
         closeBtn.style.display = 'none';
 
-        buttons.append(retryBtn, cancelBtn, closeBtn);
-        box.append(title, current, barOuter, counts, failBox, buttons);
-        overlay.appendChild(box);
+        body.append(bar, stats, failBox);
+        foot.append(cancelBtn, closeBtn, retryBtn);
         document.body.appendChild(overlay);
         setTimeout(() => cancelBtn.focus(), 0);
 
@@ -733,27 +874,35 @@
         }
 
         function setCounts(c) {
-            cDl.textContent = STR.countDownloaded(c.downloaded);
-            cSk.textContent = STR.countSkipped(c.skipped);
-            cMs.textContent = STR.countMissing(c.missing);
-            cFl.textContent = STR.countFailed(c.failed);
+            sDl.num.textContent = String(c.downloaded);
+            sSk.num.textContent = String(c.skipped);
+            sMs.num.textContent = String(c.missing);
+            sFl.num.textContent = String(c.failed);
+            sDl.tile.classList.toggle('is-ok', c.downloaded > 0);
+            sMs.tile.classList.toggle('is-warn', c.missing > 0);
+            sFl.tile.classList.toggle('is-bad', c.failed > 0);
+        }
+
+        function setBar(pct) {
+            barInner.style.width = pct + '%';
+            bar.setAttribute('aria-valuenow', String(pct));
         }
 
         function setProgress(idx, total, label) {
-            const pct = total > 0 ? Math.round((idx / total) * 100) : 0;
-            barInner.style.width = pct + '%';
+            setBar(total > 0 ? Math.round((idx / total) * 100) : 0);
             current.textContent = total > 0 ? (label ? `${label} • ${idx} of ${total}` : `${idx} of ${total}`) : '';
         }
 
         function renderFailures(failed, missing) {
             const items = [];
             if (failed.length) {
-                items.push(`<div style="font-weight:600; margin-top:2px;">${escHtml(STR.sectionFailed)}</div>`);
-                failed.forEach(f => items.push(`<div>• ${escHtml(f.label)} <span style="opacity:0.7;">— ${escHtml(f.reason)}</span></div>`));
+                items.push(`<h4>${escHtml(STR.sectionFailed)}</h4>`);
+                failed.forEach(f => items.push(
+                    `<div class="ssd-result">${escHtml(f.label)} <span class="ssd-result-reason">— ${escHtml(f.reason)}</span></div>`));
             }
             if (missing.length) {
-                items.push(`<div style="font-weight:600; margin-top:8px;">${escHtml(STR.sectionMissing)}</div>`);
-                missing.forEach(m => items.push(`<div>• ${escHtml(m.label)}</div>`));
+                items.push(`<h4>${escHtml(STR.sectionMissing)}</h4>`);
+                missing.forEach(m => items.push(`<div class="ssd-result">${escHtml(m.label)}</div>`));
             }
             if (items.length) {
                 failBox.innerHTML = items.join('');
@@ -766,6 +915,7 @@
         function finish({ cancelled, hasFailures, retryHandler }) {
             title.textContent = cancelled ? STR.progTitleCancelled : STR.progTitleDone;
             current.textContent = '';
+            bar.classList.toggle('is-muted', !!cancelled);
             cancelBtn.style.display = 'none';
             closeBtn.style.display = '';
             if (hasFailures && retryHandler) {
@@ -780,6 +930,7 @@
         function fail(message) {
             title.textContent = STR.progTitleError;
             current.textContent = message || '';
+            bar.classList.add('is-muted');
             cancelBtn.style.display = 'none';
             retryBtn.style.display = 'none';
             closeBtn.style.display = '';
@@ -794,7 +945,8 @@
             closeBtn.style.display = 'none';
             retryBtn.style.display = 'none';
             cancelToken.cancelled = false;
-            barInner.style.width = '0%';
+            bar.classList.remove('is-muted');
+            setBar(0);
             current.textContent = '';
             failBox.style.display = 'none';
             failBox.innerHTML = '';
@@ -997,6 +1149,7 @@
             e.stopPropagation();
             if (button.disabled) return;
             button.disabled = true;
+            icon.textContent = 'hourglass_empty';  // episodes and languages are loading
             try {
                 const [config, user, episodes, cultures] = await Promise.all([
                     loadConfig(),
@@ -1004,15 +1157,17 @@
                     fetchEpisodes(ctx.seriesId, ctx.seasonId),
                     loadCultures()
                 ]);
+                icon.textContent = 'subtitles';
                 if (episodes.length === 0) {
                     toast(ctx.mode === 'series' ? STR.toastNoEpisodesSeries : STR.toastNoEpisodesSeason, 3000);
                     return;
                 }
 
                 const titleText = ctx.mode === 'series' ? STR.dlgTitleSeries : STR.dlgTitleSeason;
-                const scopeText = ctx.mode === 'series'
+                const scope = ctx.mode === 'series'
                     ? STR.dlgScopeSeries(episodes.length, distinctSeasonsCount(episodes))
                     : STR.dlgScopeSeason(episodes.length);
+                const scopeText = ctx.name ? `${ctx.name} · ${scope}` : scope;
 
                 const opts = await openOptionsDialog({
                     titleText,
@@ -1039,6 +1194,7 @@
                 toast(STR.toastRunFailed, 3000);
             } finally {
                 button.disabled = false;
+                icon.textContent = 'subtitles';
             }
         };
 
@@ -1115,9 +1271,9 @@
             if (item.Type === 'Season') {
                 const seriesId = item.SeriesId || item.ParentId;
                 if (!seriesId) { dlog('Season has no SeriesId/ParentId'); return; }
-                ctx = { mode: 'season', seriesId, seasonId: item.Id };
+                ctx = { mode: 'season', seriesId, seasonId: item.Id, name: [item.SeriesName, item.Name].filter(Boolean).join(' — ') };
             } else if (item.Type === 'Series') {
-                ctx = { mode: 'series', seriesId: item.Id };
+                ctx = { mode: 'series', seriesId: item.Id, name: item.Name || '' };
             } else {
                 dlog('skipping non-Season/Series item:', item.Type);
                 lastEvaluated = { itemId, applicable: false, ctx: null };
@@ -1202,7 +1358,7 @@
             STR, debounce, delay, escHtml, defaultLanguage, alreadyHasSubtitle,
             epLabel, distinctSeasonsCount, filterSelectedEpisodes, errStatus, isRetryable, describeErr,
             withRetry, processEpisode, runBatch, runRound, openOptionsDialog,
-            openProgressDialog, injectButton, findButtonContainer,
+            openProgressDialog, injectButton, findButtonContainer, ensureStyles,
             toast, themeColors, focusables, trapTab, loadCultures, mkLanguagePicker
         }
     };
