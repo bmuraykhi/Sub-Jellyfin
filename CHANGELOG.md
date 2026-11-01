@@ -8,11 +8,48 @@ compares internally.
 
 ## [Unreleased]
 
+## [3.0.0.0] – 2026-11-01
+
 ### Changed
 
+- Redesigned the download and progress dialogs:
+  - A fixed header (with the show and season name) and footer, with the
+    content scrolling in between, so the dialog always fits the screen. On
+    phones it opens as a sheet from the bottom.
+  - Each chosen language is a row with its full name, how many episodes
+    already have it, and a small coverage bar.
+  - The episode list is a proper disclosure. Its checkboxes are visible, and
+    each episode shows which of the chosen languages it already has.
+  - Results show as four tiles (downloaded, skipped, no match, failed),
+    coloured when they need attention, with the failures and misses listed
+    below.
+  - Colours follow the active Jellyfin theme, including custom themes.
+- The **Download Subs** button shows an hourglass while it loads the episodes.
+- Enter on a button now presses that button instead of starting the run, and
+  Enter in the language-code field adds the language.
+- README shows a demo of a full run and screenshots, recorded with a made-up
+  show (`docs/demo/record_demo.py` regenerates them).
 - README now states that the released plugin links against Jellyfin's GPL-3.0
   assemblies, so the distributed DLL and zip are a combined work under the
   GPL-3.0. The repository's own source stays under The Unlicense.
+- The plugin is now also published in a catalog for all my plugins:
+  `https://raw.githubusercontent.com/bmuraykhi/jellyfin-plugins/main/manifest.json`.
+  The old URL keeps working and keeps getting updates. The release workflow
+  now updates this plugin's catalog entry by its id instead of assuming it is
+  the first one.
+
+### Fixed
+
+- The dialogs' secondary buttons (Add, Cancel, Close, the language and episode
+  controls) were unreadable on Jellyfin 12.4: light boxes with light text.
+- The episode checkboxes were invisible (Jellyfin hides inputs with its
+  `emby-checkbox` class unless they are its own custom element), so you could
+  not see which episodes were selected.
+- With the episode list open the dialog could grow taller than the window,
+  cutting off its title and last episodes.
+- On phones the progress dialog ran edge to edge, and the summary toast
+  covered the dialog's buttons.
+- Some themes pushed Start below Cancel.
 
 ## [2.0.0.0] – 2026-08-05
 
