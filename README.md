@@ -17,6 +17,8 @@ Adds a **Download Subs** button to season *and* series pages. Click it, pick one
 or more languages, and it walks every episode using whichever subtitle providers
 you already have configured — no per-episode clicking, no shell access.
 
+![Downloading English and Spanish subtitles for a whole season](docs/images/demo.gif)
+
 It doesn't modify `jellyfin-web`. A 64 KB DLL injects a small script into
 `index.html` through the
 [File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation)
@@ -34,13 +36,17 @@ plugin, so it survives web-client updates.
 
 One-time setup — after this, updates arrive as one-click upgrades from the catalog.
 
-1. Dashboard → **Plugins** → **Repositories** → **+**
-2. Name: `Season Subtitle Downloader`
+1. Dashboard → **Plugins** → **Manage Repositories** → **+**
+2. Name: `Bandar's plugins` (any name works)
 3. URL:
 
    ```
-   https://raw.githubusercontent.com/bmuraykhi/Sub-Jellyfin/main/manifest.json
+   https://raw.githubusercontent.com/bmuraykhi/jellyfin-plugins/main/manifest.json
    ```
+
+   This is the catalog for all my plugins. The old Sub-Jellyfin URL
+   (`https://raw.githubusercontent.com/bmuraykhi/Sub-Jellyfin/main/manifest.json`) still works and keeps getting this plugin's updates, but only
+   lists this plugin — switch to the new one to see the others.
 
 4. Save, then Dashboard → **Plugins** → **Catalog** → **Season Subtitle
    Downloader** (under *General*) → **Install**
@@ -49,22 +55,34 @@ One-time setup — after this, updates arrive as one-click upgrades from the cat
 You're set when My Plugins shows it **Active** and a **Download Subs** button
 appears on any season page. If it doesn't, see [Troubleshooting](#troubleshooting).
 
+The same catalog also has [Untrack Show](#more-from-this-catalog).
+
 ## Using it
 
 1. Open a **season** page (that season only) or a **series** page (every season).
 2. Click **Download Subs**.
-3. Pick your languages from the dropdown — add as many as you want, each one
-   becomes a chip. The dialog shows how many episodes already have subtitles in
-   each of them.
-4. Choose whether to skip episodes that already have one, how many variants to
-   pull per episode, and — if you don't want the whole scope — expand the
-   episode list and tick just the ones you want (*Only missing* selects every
-   episode short of at least one of your languages).
+3. Pick your languages from the dropdown and press **Add** — add as many as you
+   want. Each language gets its own row showing how many episodes already have
+   subtitles in it.
+4. Choose whether to skip episodes that already have one and how many variants
+   to pull per episode. If you don't want the whole scope, open the episode list
+   and tick just the ones you want: each episode shows the languages it already
+   has, and *Only missing* selects every episode short of at least one of your
+   languages.
+
+   ![The download dialog with English and Spanish picked](docs/images/dialog.png)
 5. **Start.** Progress shows live counts — downloaded, skipped, no match, failed.
    **Cancel** (or Esc) stops between episodes.
 6. When it finishes, any failures are listed per episode and language with the
    reason. **Retry Failed** re-runs exactly those pairs, as many times as you
    need.
+
+   ![Results of a run: 12 downloaded, 3 skipped, 1 with no match](docs/images/done.png)
+
+On a phone (the Jellyfin app or a mobile browser) the dialog opens as a sheet
+from the bottom of the screen:
+
+<img src="docs/images/phone.png" width="300" alt="The download dialog on a phone">
 
 Episodes are processed one at a time, one language after another. Counts are per
 language, so an episode fetched in two languages reports two downloads. If your
@@ -78,7 +96,7 @@ dialog opens with; language, skip-existing, and variants can be overridden per r
 
 | Setting | Default | Range | Notes |
 |---|---|---|---|
-| Default subtitle language | *blank* | server language list | A dropdown of the languages your server knows. Seeds the first language chip in the dialog; blank falls back to the user's Jellyfin subtitle preference, then `eng` |
+| Default subtitle language | *blank* | server language list | A dropdown of the languages your server knows. Seeds the first language in the dialog; blank falls back to the user's Jellyfin subtitle preference, then `eng` |
 | Skip episodes that already have a subtitle | on | — | Checked per language — an episode with English but no French still gets French |
 | Retry attempts per episode | `2` | 0–10 | Retries network errors, 429 and 5xx with backoff. 4xx never retries, so a bad language code fails fast |
 | Delay between episodes | `0` ms | 0–10000 | Pause between episodes for strict providers |
@@ -147,6 +165,16 @@ The DLL lands in `publish/`; `meta.json` is in the repo root and `icon.png` in
 install** above.
 
 </details>
+
+## More from this catalog
+
+<img src="https://raw.githubusercontent.com/bmuraykhi/jellyfin-plugin-untrack/main/assets/icon.png" width="48" align="left" alt="">
+
+**[Untrack Show](https://github.com/bmuraykhi/jellyfin-plugin-untrack)**: watched random episodes of a sitcom and now
+it's all over Continue Watching and Next Up? Untrack Show adds an *Untrack show* option to the ⋮ menu that clears
+the whole show from both rows in one click. Install it from the same catalog.
+
+<br clear="left">
 
 ## License
 
