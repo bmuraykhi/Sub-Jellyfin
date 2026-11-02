@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="assets/icon.png" width="96" alt="">
-
-# Season Subtitle Downloader
+<img src="assets/icon.png" width="480" alt="Season Subtitle Downloader">
 
 Download subtitles for a whole season or series in one click, in as many languages as you need.
 

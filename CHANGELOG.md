@@ -17,6 +17,8 @@ compares internally.
   `https://raw.githubusercontent.com/bmuraykhi/jellyfin-plugins/main/manifest.json`.
 - The catalog shows this changelog's notes for every version, instead of
   commit messages for the older ones.
+- New plugin logo with the plugin's name. It fills the wide plugin tile instead
+  of being zoomed and cropped.
 
 ## [3.0.0.0] – 2026-11-01
 
