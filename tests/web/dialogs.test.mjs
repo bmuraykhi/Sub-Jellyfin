@@ -62,6 +62,21 @@ describe('dialogs', () => {
             expect(result).toEqual({ languages: ['eng', 'fra'], skipExisting: true, topVariants: 1 });
         });
 
+        it('warns up front when the server has no subtitle provider', () => {
+            const I = loadSeasonSubs()._internals;
+            openOptions(I, { providers: [] });
+            expect(document.body.textContent).toContain(I.STR.dlgNoProviders);
+        });
+
+        it('shows no provider warning when one is installed or the check failed', () => {
+            const I = loadSeasonSubs()._internals;
+            openOptions(I, { providers: ['OpenSubtitles'] });
+            expect(document.body.textContent).not.toContain(I.STR.dlgNoProviders);
+            document.body.innerHTML = '';
+            openOptions(I, { providers: null });
+            expect(document.body.textContent).not.toContain(I.STR.dlgNoProviders);
+        });
+
         it('resolves with null when the page changes underneath it', async () => {
             const subs = loadSeasonSubs();
             const I = subs._internals;

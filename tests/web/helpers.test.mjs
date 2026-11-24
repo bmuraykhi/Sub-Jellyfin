@@ -133,16 +133,23 @@ describe('helpers', () => {
             expect(I.isRetryable({})).toBe(true);
         });
 
-        it('describes an HTTP status error', () => {
-            expect(I.describeErr({ status: 404 })).toBe('HTTP 404');
+        it('describes HTTP errors in plain words', () => {
+            expect(I.describeErr({ status: 404 })).toBe(I.STR.errNotFound);
+            expect(I.describeErr({ status: 403 })).toBe(I.STR.errNotAllowed);
+            expect(I.describeErr({ status: 429 })).toBe(I.STR.errTooMany);
+            expect(I.describeErr({ status: 503 })).toBe(I.STR.errServer(503));
+            expect(I.describeErr({ status: 418 })).toBe(I.STR.errStatus(418));
         });
 
         it('describes a plain Error by message', () => {
             expect(I.describeErr(new Error('x'))).toBe('x');
         });
 
-        it('falls back to a network error description', () => {
-            expect(I.describeErr({})).toBe('network error');
+        it('says the server could not be reached for network failures', () => {
+            expect(I.describeErr({})).toBe(I.STR.errOffline);
+            expect(I.describeErr(new TypeError('Failed to fetch'))).toBe(I.STR.errOffline);
+            expect(I.isOfflineError(new TypeError('Failed to fetch'))).toBe(true);
+            expect(I.isOfflineError({ status: 500 })).toBe(false);
         });
     });
 

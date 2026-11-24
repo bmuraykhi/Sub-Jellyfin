@@ -38,9 +38,17 @@ function makeAjaxStub({ search, download, deliver = () => true }) {
     };
 }
 
-function makeProgress() {
+function makeProgress(answer) {
     const calls = { setProgress: [], setCounts: [] };
     return {
+        pauses: [],
+        resumed: 0,
+        pause(message, choices) {
+            this.pauses.push({ message, choices: choices || null });
+            return choices ? Promise.resolve(answer ? answer(message) : 'go') : null;
+        },
+        resume() { this.resumed++; },
+        setNote() {},
         cancelToken: { cancelled: false },
         setCounts(c) { calls.setCounts.push({ ...c }); },
         setProgress(idx, total, label) { calls.setProgress.push({ idx, total, label }); },
@@ -110,7 +118,7 @@ describe('multi-language batch runner', () => {
         expect(result.counts.downloaded).toBe(1);
         expect(result.counts.failed).toBe(1);
         expect(result.failed).toEqual([
-            { episodeId: 'e1', language: 'fra', label: expect.stringContaining('[fra]'), reason: 'HTTP 500' }
+            { episodeId: 'e1', language: 'fra', label: expect.stringContaining('[fra]'), reason: 'the server or the subtitle provider had a problem (error 500)' }
         ]);
     });
 
@@ -163,6 +171,76 @@ describe('multi-language batch runner', () => {
         expect(stub.calls.filter(c => c.type === 'download').map(c => c.subtitleId)).toEqual(['r1', 'r2']);
     });
 
+    it('waits for an unreachable server and then retries the same episode', async () => {
+        const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}) });
+        let searches = 0;
+        let pings = 0;
+        const ajax = opts => {
+            if (/System\/Info\/Public/.test(opts.url)) {
+                pings++;
+                return pings < 3 ? Promise.reject(new TypeError('Failed to fetch')) : Promise.resolve({});
+            }
+            if (opts.type === 'GET' && ++searches === 1) return Promise.reject(new TypeError('Failed to fetch'));
+            return stub.ajax(opts);
+        };
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax, getItem: stub.getItem }));
+        const I = subs._internals;
+        const progress = makeProgress();
+        const opts = { languages: ['eng'], skipExisting: false, topVariants: 1, maxRetries: 0, requestDelayMs: 0, offlinePollMs: 5 };
+
+        const result = await I.runBatch(progress, [ep('e1', 1, 'A')], opts);
+
+        expect(progress.pauses).toEqual([{ message: I.STR.pausedOffline, choices: null }]);
+        expect(progress.resumed).toBeGreaterThan(0);
+        expect(result.counts).toEqual({ downloaded: 1, skipped: 0, missing: 0, failed: 0 });
+    });
+
+    it('fails a network error normally when the server answers', async () => {
+        const ajax = opts => (/System\/Info\/Public/.test(opts.url) ? Promise.resolve({}) : Promise.reject(new TypeError('Failed to fetch')));
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax }));
+        const I = subs._internals;
+        const progress = makeProgress();
+        const opts = { languages: ['eng'], skipExisting: false, topVariants: 1, maxRetries: 0, requestDelayMs: 0 };
+
+        const result = await I.runBatch(progress, [ep('e1', 1, 'A')], opts);
+
+        expect(progress.pauses).toEqual([]);
+        expect(result.failed[0].reason).toBe(I.STR.errOffline);
+    });
+
+    it('asks after three provider failures in a row and stops when told to', async () => {
+        const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}), deliver: () => false });
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
+        const I = subs._internals;
+        const progress = makeProgress(() => 'stop');
+        const episodes = [1, 2, 3, 4].map(n => ep('e' + n, n, String(n)));
+        const opts = { languages: ['eng'], skipExisting: false, topVariants: 1, maxRetries: 0, requestDelayMs: 0, verifyTimeoutMs: 5 };
+
+        const result = await I.runBatch(progress, episodes, opts);
+
+        expect(progress.pauses).toHaveLength(1);
+        expect(progress.pauses[0].message).toBe(I.STR.pausedProvider(3));
+        expect(progress.pauses[0].choices.map(c => c.value)).toEqual(['stop', 'go']);
+        expect(result.cancelled).toBe(true);
+        expect(result.counts.failed).toBe(3);
+        expect(stub.calls.filter(c => c.episodeId === 'e4')).toEqual([]);
+    });
+
+    it('keeps going after the provider pause when told to, and asks again only after three more', async () => {
+        const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}), deliver: () => false });
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
+        const I = subs._internals;
+        const progress = makeProgress(() => 'go');
+        const episodes = [1, 2, 3, 4, 5].map(n => ep('e' + n, n, String(n)));
+        const opts = { languages: ['eng'], skipExisting: false, topVariants: 1, maxRetries: 0, requestDelayMs: 0, verifyTimeoutMs: 5 };
+
+        const result = await I.runBatch(progress, episodes, opts);
+
+        expect(progress.pauses).toHaveLength(1);
+        expect(result.cancelled).toBe(false);
+        expect(result.counts.failed).toBe(5);
+    });
+
     it('honors a languagesByEpisode override for one episode while others run every language', async () => {
         const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}) });
         const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
@@ -208,7 +286,7 @@ describe('multi-language batch runner', () => {
         const result = await I.runRound(progress, opts, fetchEpsForRound);
 
         expect(result.failed).toEqual([
-            { episodeId: 'e1', language: 'fra', label: expect.stringContaining('[fra]'), reason: 'HTTP 500' }
+            { episodeId: 'e1', language: 'fra', label: expect.stringContaining('[fra]'), reason: 'the server or the subtitle provider had a problem (error 500)' }
         ]);
         expect(progress.finishArgs.hasFailures).toBe(true);
         expect(typeof progress.finishArgs.retryHandler).toBe('function');

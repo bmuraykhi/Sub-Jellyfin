@@ -86,10 +86,26 @@
         toastNoEpisodesSeason: 'No episodes found in this season',
         toastNoEpisodesSeries: 'No episodes found in this series',
         toastRunFailed: 'Could not start subtitle run',
-        errNotDelivered: 'the subtitle never showed up on the episode, so the provider probably failed (check its login and daily limit)'
+        errNotDelivered: 'the subtitle provider didn\'t deliver it (check its login and daily download limit)',
+        errNotAllowed: 'not allowed: sign in again, or ask an admin for subtitle download rights',
+        errNotFound: 'the episode is no longer in the library',
+        errTooMany: 'the subtitle provider is limiting requests: try again later, or add a pause in the plugin settings',
+        errServer: (status) => `the server or the subtitle provider had a problem (error ${status})`,
+        errStatus: (status) => `the server refused (error ${status})`,
+        errOffline: 'couldn\'t reach your Jellyfin server',
+        progTitlePaused: 'Paused',
+        pausedOffline: 'Can\'t reach your Jellyfin server. The download continues on its own once it\'s back.',
+        pausedProvider: (n) => `The last ${n} downloads failed. The subtitle provider may be out of downloads for today, or signed out.`,
+        btnStop: 'Stop',
+        btnKeepGoing: 'Keep going',
+        pillOffline: 'waiting for the server',
+        pillNeedsYou: 'paused, needs your answer',
+        dlgNoProviders: 'No subtitle provider is installed on this server, so every search will come back empty. An admin can install one, such as OpenSubtitles, from Dashboard → Plugins.',
+        hintAllMissing: 'Nothing was found for any episode. Check that the subtitle provider is signed in, or try another language.'
     };
 
     const VERIFY_TIMEOUT_MS = 6000;
+    const PROVIDER_FAILURE_STREAK = 3;
 
     let lastEvaluated = { itemId: null, applicable: false, ctx: null };
     let activeProgress = null;
@@ -97,6 +113,7 @@
     let cachedConfig = null;
     let cachedUser = null;
     let cachedCultures = null;
+    let cachedProviders = null;
 
     function debounce(fn, wait) {
         let t;
@@ -176,6 +193,22 @@
             cachedCultures = out.length > 0 ? out : null;
             return cachedCultures;
         }).catch(() => null);
+    }
+
+    function loadSubtitleProviders() {
+        if (cachedProviders) return Promise.resolve(cachedProviders);
+        try {
+            return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Libraries/AvailableOptions'), dataType: 'json' })
+                .then(o => {
+                    if (!o || !Array.isArray(o.SubtitleFetchers)) return null;
+                    const names = o.SubtitleFetchers.map(f => f && f.Name).filter(Boolean);
+                    if (names.length > 0) cachedProviders = names;
+                    return names;
+                })
+                .catch(() => null);
+        } catch (_) {
+            return Promise.resolve(null);
+        }
     }
 
     function defaultLanguage(config, user) {
@@ -289,11 +322,53 @@
         return false;
     }
 
-    function describeErr(err) {
+    function isOfflineError(err) {
+        if (!err || err.notDelivered || err.message === 'cancelled') return false;
         const status = errStatus(err);
-        if (status) return `HTTP ${status}`;
-        if (err && err.message) return err.message;
-        return 'network error';
+        return status == null || status === 0;
+    }
+
+    function isProviderFailure(err) {
+        if (!err) return false;
+        if (err.notDelivered) return true;
+        const status = errStatus(err);
+        return status === 429 || (status >= 500 && status < 600);
+    }
+
+    function describeErr(err) {
+        if (err && err.notDelivered) return STR.errNotDelivered;
+        const status = errStatus(err);
+        if (status === 401 || status === 403) return STR.errNotAllowed;
+        if (status === 404) return STR.errNotFound;
+        if (status === 429) return STR.errTooMany;
+        if (status >= 500 && status < 600) return STR.errServer(status);
+        if (status) return STR.errStatus(status);
+        if (err && err.message && !/fetch|network/i.test(err.message)) return err.message;
+        return STR.errOffline;
+    }
+
+    async function serverReachable() {
+        try {
+            await ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('System/Info/Public'), dataType: 'json' });
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async function waitForServer(progress, isCancelled, pollMs) {
+        if (await serverReachable()) return 'online';
+        progress.pause(STR.pausedOffline, null, STR.pillOffline);
+        while (!isCancelled()) {
+            await delay(pollMs || 3000, isCancelled);
+            if (isCancelled()) break;
+            if (await serverReachable()) {
+                progress.resume();
+                return 'back';
+            }
+        }
+        progress.resume();
+        return 'cancelled';
     }
 
     async function withRetry(fn, maxRetries, baseDelayMs, isCancelled) {
@@ -367,6 +442,13 @@
 .ssd-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px}
 .ssd-dialog .ssd-num{flex:none;width:76px;text-align:center}
 .ssd-hint{margin-top:6px;font-size:.85em;opacity:.65}
+.ssd-note{margin-top:10px}
+.ssd-notice{margin-top:14px;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,167,38,.45);background:rgba(255,167,38,.12)}
+.ssd-notice-text{font-size:.92em}
+.ssd-notice-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+.ssd-notice-actions:not(:empty){margin-top:10px}
+.ssd-pill.is-paused{border-color:rgba(255,167,38,.8)}
+.ssd-pill.is-paused .ssd-pill-bar>div{background:#ffa726}
 .ssd-error{margin-top:8px;color:#ef5350;font-size:.88em}
 .ssd-disclosure{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:0;
   padding:.7em 14px;border:0;border-radius:10px;background:var(--ssd-soft);color:inherit;font:inherit;
@@ -784,7 +866,7 @@
         return input;
     }
 
-    function openOptionsDialog({ titleText, scopeText, defaultLang, defaultLangs, defaultSkip, defaultVariants, cultures, episodes = [] }) {
+    function openOptionsDialog({ titleText, scopeText, defaultLang, defaultLangs, defaultSkip, defaultVariants, cultures, providers, episodes = [] }) {
         return new Promise(resolve => {
             const { overlay, box, body, foot, headActions } = mkDialog('season-subs-options-title', titleText, scopeText);
             const prevFocus = document.activeElement;
@@ -1025,6 +1107,12 @@
             overlay.addEventListener('click', e => { if (e.target === overlay) close(null); });
             document.addEventListener('keydown', onKey);
 
+            if (Array.isArray(providers) && providers.length === 0) {
+                const warn = el('div', { className: 'ssd-notice is-warn' });
+                warn.setAttribute('role', 'note');
+                warn.appendChild(el('div', { className: 'ssd-notice-text' }, STR.dlgNoProviders));
+                body.appendChild(warn);
+            }
             body.append(langSection, optSection);
             if (epSection) body.appendChild(epSection);
             foot.append(cancelBtn, startBtn);
@@ -1049,6 +1137,9 @@
         let lastCounts = { downloaded: 0, skipped: 0, missing: 0, failed: 0 };
         let pct = 0;
         let nowText = '';
+        let roundTitle = STR.progTitle;
+        let pausedShort = '';
+        let pendingChoice = null;
 
         const now = el('div', { className: 'ssd-now' });
         const nowLabel = el('span', { className: 'ssd-now-label' });
@@ -1078,6 +1169,13 @@
         const sFl = mkStat(STR.statFailed);
 
         const failBox = el('div', { className: 'ssd-results', style: 'display:none;' });
+        const note = el('div', { className: 'ssd-hint ssd-note', style: 'display:none;' });
+
+        const notice = el('div', { className: 'ssd-notice', style: 'display:none;' });
+        notice.setAttribute('role', 'alert');
+        const noticeText = el('div', { className: 'ssd-notice-text' });
+        const noticeActions = el('div', { className: 'ssd-notice-actions' });
+        notice.append(noticeText, noticeActions);
 
         const hideBtn = mkIconButton(ICON_HIDE, STR.btnHide);
         const closeX = mkIconButton(ICON_CLOSE, STR.btnClose);
@@ -1104,7 +1202,7 @@
         pillBar.appendChild(pillBarInner);
         pill.append(pillMain, pillClose, pillBar);
 
-        body.append(now, bar, stats, failBox);
+        body.append(notice, now, bar, stats, note, failBox);
         foot.append(cancelBtn, closeBtn, retryBtn);
         document.body.appendChild(overlay);
         setTimeout(() => cancelBtn.focus(), 0);
@@ -1116,6 +1214,7 @@
             cancelToken.cancelled = true;
             cancelBtn.disabled = true;
             cancelBtn.textContent = STR.cancelInProgress;
+            if (pendingChoice) pendingChoice('stop');
         };
         retryBtn.onclick = () => {
             if (!onRetry) return;
@@ -1160,10 +1259,11 @@
         function updatePill() {
             pillTitle.textContent = title.textContent;
             pillSub.textContent = running
-                ? [contextText, nowText].filter(Boolean).join(' · ')
+                ? [contextText, pausedShort || nowText].filter(Boolean).join(' · ')
                 : [contextText, STR.pillSummary(lastCounts)].filter(Boolean).join(' · ');
             pillBarInner.style.width = pct + '%';
             pill.classList.toggle('is-running', running);
+            pill.classList.toggle('is-paused', !!pausedShort);
             pillClose.style.display = running ? 'none' : '';
         }
 
@@ -1254,7 +1354,47 @@
             followUp = failed.length + missing.length > 0;
         }
 
+        function pause(message, choices, short) {
+            title.textContent = STR.progTitlePaused;
+            noticeText.textContent = message;
+            noticeActions.innerHTML = '';
+            notice.style.display = '';
+            bar.classList.add('is-muted');
+            pausedShort = short || STR.progTitlePaused;
+            if (hidden) updatePill();
+            if (!choices || choices.length === 0) return null;
+            return new Promise(resolve => {
+                pendingChoice = value => {
+                    pendingChoice = null;
+                    resolve(value);
+                };
+                choices.forEach(c => {
+                    const b = mkButton(c.label, c.primary);
+                    b.onclick = () => { if (pendingChoice) pendingChoice(c.value); };
+                    noticeActions.appendChild(b);
+                });
+                if (!hidden) setTimeout(() => { const last = noticeActions.lastChild; if (last) last.focus(); }, 0);
+            });
+        }
+
+        function resume() {
+            notice.style.display = 'none';
+            noticeActions.innerHTML = '';
+            pendingChoice = null;
+            pausedShort = '';
+            title.textContent = roundTitle;
+            bar.classList.remove('is-muted');
+            if (hidden) updatePill();
+        }
+
+        function setNote(text) {
+            note.textContent = text || '';
+            note.style.display = text ? '' : 'none';
+        }
+
         function finish({ cancelled, hasFailures, retryHandler }) {
+            notice.style.display = 'none';
+            pausedShort = '';
             title.textContent = cancelled ? STR.progTitleCancelled : STR.progTitleDone;
             bar.classList.toggle('is-muted', !!cancelled);
             setRunning(false);
@@ -1280,8 +1420,10 @@
             if (hidden) updatePill();
         }
 
-        function startRound(roundTitle) {
-            title.textContent = roundTitle || STR.progTitle;
+        function startRound(newTitle) {
+            roundTitle = newTitle || STR.progTitle;
+            title.textContent = roundTitle;
+            setNote('');
             setRunning(true);
             cancelBtn.disabled = false;
             cancelBtn.textContent = STR.btnCancel;
@@ -1297,6 +1439,7 @@
 
         const api = {
             cancelToken, setCounts, setProgress, renderFailures, finish, fail, close, startRound, hide, show,
+            pause, resume, setNote,
             isRunning: () => running,
             isHidden: () => hidden
         };
@@ -1336,6 +1479,7 @@
         const failed = [];
         const missing = [];
         const isCancelled = () => progress.cancelToken.cancelled;
+        let streak = 0;
 
         progress.setCounts(counts);
 
@@ -1355,22 +1499,50 @@
                 if (opts.skipExisting && alreadyHasSubtitle(ep, lang)) {
                     counts.skipped++;
                 } else {
-                    try {
-                        const result = await processEpisode(ep, lang, opts, isCancelled);
-                        if (result.kind === 'downloaded') {
-                            counts.downloaded++;
-                        } else if (result.kind === 'missing') {
-                            counts.missing++;
-                            missing.push({ episodeId: ep.Id, language: lang, label: langLabel });
+                    let kind = null;
+                    let error = null;
+                    while (kind === null) {
+                        try {
+                            kind = (await processEpisode(ep, lang, opts, isCancelled)).kind;
+                        } catch (e) {
+                            if (e && e.message === 'cancelled') break episodeLoop;
+                            if (isOfflineError(e) && progress.pause) {
+                                const state = await waitForServer(progress, isCancelled, opts.offlinePollMs);
+                                if (state === 'cancelled') break episodeLoop;
+                                if (state === 'back') continue;
+                            }
+                            console.error(LOG, `Failed for ${langLabel}`, e);
+                            kind = 'failed';
+                            error = e;
                         }
-                    } catch (e) {
-                        if (e && e.message === 'cancelled') break episodeLoop;
-                        console.error(LOG, `Failed for ${langLabel}`, e);
+                    }
+                    if (kind === 'downloaded') {
+                        counts.downloaded++;
+                        streak = 0;
+                    } else if (kind === 'missing') {
+                        counts.missing++;
+                        missing.push({ episodeId: ep.Id, language: lang, label: langLabel });
+                        streak = 0;
+                    } else if (kind === 'failed') {
                         counts.failed++;
-                        failed.push({ episodeId: ep.Id, language: lang, label: langLabel, reason: describeErr(e) });
+                        failed.push({ episodeId: ep.Id, language: lang, label: langLabel, reason: describeErr(error) });
+                        streak = isProviderFailure(error) ? streak + 1 : 0;
                     }
                 }
                 progress.setCounts(counts);
+
+                if (streak >= PROVIDER_FAILURE_STREAK && progress.pause && !isCancelled()) {
+                    const choice = await progress.pause(STR.pausedProvider(streak), [
+                        { label: STR.btnStop, value: 'stop' },
+                        { label: STR.btnKeepGoing, value: 'go', primary: true }
+                    ], STR.pillNeedsYou);
+                    progress.resume();
+                    if (choice !== 'go') {
+                        progress.cancelToken.cancelled = true;
+                        break episodeLoop;
+                    }
+                    streak = 0;
+                }
 
                 if (opts.requestDelayMs > 0 && li < langs.length - 1 && !isCancelled()) {
                     await delay(opts.requestDelayMs, isCancelled);
@@ -1399,6 +1571,10 @@
             return { counts: { downloaded: 0, skipped: 0, missing: 0, failed: 0 }, failed: [], missing: [], cancelled: false };
         }
         const result = await runBatch(progress, eps, opts);
+        const c = result.counts;
+        if (!result.cancelled && c.missing > 0 && c.downloaded === 0 && c.failed === 0 && progress.setNote) {
+            progress.setNote(STR.hintAllMissing);
+        }
         const stillFailing = !result.cancelled && result.failed.length > 0;
         progress.finish({
             cancelled: result.cancelled,
@@ -1535,11 +1711,12 @@
             button.disabled = true;
             icon.textContent = 'hourglass_empty';
             try {
-                const [config, user, episodes, cultures] = await Promise.all([
+                const [config, user, episodes, cultures, providers] = await Promise.all([
                     loadConfig(),
                     loadCurrentUser(),
                     fetchEpisodes(ctx.seriesId, ctx.seasonId),
-                    loadCultures()
+                    loadCultures(),
+                    loadSubtitleProviders()
                 ]);
                 icon.textContent = 'subtitles';
                 if (episodes.length === 0) {
@@ -1560,6 +1737,7 @@
                     defaultSkip: config.SkipExistingByDefault !== false,
                     defaultVariants: typeof config.TopVariants === 'number' && config.TopVariants >= 1 ? config.TopVariants : 1,
                     cultures,
+                    providers,
                     episodes
                 });
                 if (!opts) return;
@@ -1739,7 +1917,7 @@
         _internals: {
             STR, debounce, delay, escHtml, defaultLanguage, defaultLanguages, alreadyHasSubtitle,
             epLabel, distinctSeasonsCount, filterSelectedEpisodes, errStatus, isRetryable, describeErr,
-            withRetry, processEpisode, runBatch, runRound, openOptionsDialog,
+            loadSubtitleProviders, withRetry, processEpisode, runBatch, isOfflineError, isProviderFailure, waitForServer, runRound, openOptionsDialog,
             openProgressDialog, injectButton, findButtonContainer, ensureStyles, fitButton,
             toast, themeColors, focusables, trapTab, loadCultures, mkLanguageCombo, searchLanguages, suggestLanguages, primaryName, checkRoute, startRun
         }
