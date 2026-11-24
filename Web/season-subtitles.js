@@ -104,7 +104,7 @@
         hintAllMissing: 'Nothing was found for any episode. Check that the subtitle provider is signed in, or try another language.'
     };
 
-    const VERIFY_TIMEOUT_MS = 6000;
+    const VERIFY_TIMEOUT_MS = 4000;
     const PROVIDER_FAILURE_STREAK = 3;
 
     let lastEvaluated = { itemId: null, applicable: false, ctx: null };
@@ -305,6 +305,7 @@
     function notDeliveredError() {
         const e = new Error(STR.errNotDelivered);
         e.notDelivered = true;
+        e.retryLimit = 1;
         return e;
     }
 
@@ -379,7 +380,8 @@
                 return await fn();
             } catch (e) {
                 if (isCancelled && isCancelled()) throw new Error('cancelled');
-                if (attempt >= maxRetries || !isRetryable(e)) throw e;
+                const limit = e && e.retryLimit != null ? Math.min(maxRetries, e.retryLimit) : maxRetries;
+                if (attempt >= limit || !isRetryable(e)) throw e;
                 const wait = Math.min(30000, baseDelayMs * Math.pow(2, attempt));
                 attempt++;
                 await delay(wait, isCancelled);

@@ -136,6 +136,17 @@ describe('multi-language batch runner', () => {
         expect(stub.calls.filter(c => c.type === 'download')).toHaveLength(2);
     });
 
+    it('retries a download the provider did not deliver only once, whatever the retry setting', async () => {
+        const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}), deliver: () => false });
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
+        const I = subs._internals;
+        const opts = { languages: ['eng'], skipExisting: false, topVariants: 1, maxRetries: 5, requestDelayMs: 0, verifyTimeoutMs: 5 };
+
+        await I.runBatch(makeProgress(), [ep('e1', 1, 'A')], opts);
+
+        expect(stub.calls.filter(c => c.type === 'download')).toHaveLength(2);
+    });
+
     it('counts a download once the subtitle shows up on the episode a moment later', async () => {
         const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}), deliver: () => false });
         let lookups = 0;
