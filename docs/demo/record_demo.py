@@ -47,8 +47,6 @@ def mock_id(*parts):
     return hashlib.md5(("subs-demo:" + ":".join(map(str, parts))).encode()).hexdigest()
 
 
-# ---- A made-up show ------------------------------------------------------------------------------------------------
-
 SHOW = {"name": "Maple Street", "year": 2014, "colors": ("#f6b04b", "#c2410c")}
 SERIES_ID = mock_id("series")
 SEASON_ID = mock_id("season", 2)
@@ -62,8 +60,8 @@ EPISODES = [
     (7, "Yard Sale", "One person's junk is another person's priceless heirloom."),
     (8, "Snowed In", "Stuck at home for three days with the in-laws."),
 ]
-HAS_ENGLISH = {1, 2, 4}  # episodes that already have English subtitles
-NO_MATCH = {(7, "spa")}  # the provider has nothing for these
+HAS_ENGLISH = {1, 2, 4}
+NO_MATCH = {(7, "spa")}
 
 ITEMS = {}
 ITEMS[SERIES_ID] = {
@@ -104,10 +102,21 @@ for number, title, overview in EPISODES:
     }
     EPISODE_ITEMS.append(ITEMS[item_id])
 EPISODE_NUMBER = {e["Id"]: e["IndexNumber"] for e in EPISODE_ITEMS}
+DOWNLOADED = {}
+
+
+def item(item_id):
+    found = ITEMS[item_id]
+    extra = DOWNLOADED.get(item_id)
+    if not extra:
+        return found
+    streams = found["MediaStreams"] + [
+        {"Type": "Subtitle", "Index": len(found["MediaStreams"]) + i, "Codec": "subrip", "Language": lang,
+         "IsExternal": True} for i, lang in enumerate(extra)]
+    return {**found, "MediaStreams": streams}
 
 
 def artwork(item_id, image_type):
-    """A generated title card (SVG) for the made-up show."""
     item = ITEMS[item_id]
     poster = image_type == "Primary" and item["Type"] in ("Series", "Season")
     w, h = (400, 600) if poster else (1280, 720) if image_type == "Backdrop" else (640, 360)
@@ -123,7 +132,7 @@ def artwork(item_id, image_type):
         lines += (f'<text x="50%" y="{h / 2 + size * 1.25:.0f}" text-anchor="middle" dominant-baseline="middle" '
                   f'font-size="{size * .38:.0f}" font-weight="600" letter-spacing="4" opacity=".85">{caption}</text>')
     if image_type == "Backdrop":
-        lines = ""  # backdrops stay plain so the page's title text reads well
+        lines = ""
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
 <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{c1}"/>
 <stop offset="1" stop-color="{c2}"/></linearGradient></defs>
@@ -133,8 +142,6 @@ def artwork(item_id, image_type):
 <g fill="#fff" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif">{lines}</g>
 </svg>'''
 
-
-# ---- Request mocking ---------------------------------------------------------------------------------------------
 
 ID = r"([0-9a-f]{32})"
 stats = {"searches": 0, "downloads": 0}
@@ -156,11 +163,11 @@ def handle(route):
         replacement = f"<!-- season-subtitles-inject -->\n<script>{script}</script>\n<!-- /season-subtitles-inject -->"
         return route.fulfill(content_type="text/html", body=INJECTED.sub(lambda _: replacement, html))
     if path.startswith("/Branding/Css"):
-        return route.fulfill(content_type="text/css", body="")  # stock look: no custom theme
+        return route.fulfill(content_type="text/css", body="")
     if path == "/Branding/Configuration":
         branding = route.fetch().json()
-        branding["CustomCss"] = ""  # jellyfin-web also applies the custom CSS from here
-        return json_reply(route, branding)  # stock look, no custom theme
+        branding["CustomCss"] = ""
+        return json_reply(route, branding)
     if path.startswith("/EditorsChoice/"):
         return route.fulfill(content_type="text/javascript", body="")
     if path in ("/System/Info", "/System/Info/Public"):
@@ -168,17 +175,19 @@ def handle(route):
         info["ServerName"] = "Jellyfin"
         return json_reply(route, info)
     if path == f"/Plugins/{PLUGIN_GUID}/Configuration":
-        # The plugin's defaults, whatever the server has configured.
-        return json_reply(route, {"DefaultLanguage": "eng", "SkipExistingByDefault": True, "TopVariants": 1,
-                                  "RequestDelayMs": 0, "MaxRetries": 2})
+        return json_reply(route, {"DefaultLanguage": "", "DefaultLanguages": ["eng"], "SkipExistingByDefault": True,
+                                  "TopVariants": 1, "RequestDelayMs": 0, "MaxRetries": 2})
+    if path == "/Libraries/AvailableOptions":
+        return json_reply(route, {"SubtitleFetchers": [{"Name": "Open Subtitles", "DefaultEnabled": True}]})
     if path == f"/Shows/{SERIES_ID}/Episodes":
-        return json_reply(route, {"Items": EPISODE_ITEMS, "TotalRecordCount": len(EPISODE_ITEMS), "StartIndex": 0})
+        episodes = [item(e["Id"]) for e in EPISODE_ITEMS]
+        return json_reply(route, {"Items": episodes, "TotalRecordCount": len(episodes), "StartIndex": 0})
     if path == f"/Shows/{SERIES_ID}/Seasons":
         return json_reply(route, {"Items": [ITEMS[SEASON_ID]], "TotalRecordCount": 1, "StartIndex": 0})
     m = re.match(rf"^/Items/{ID}/RemoteSearch/Subtitles/([^/]+)$", path)
     if m and m.group(1) in ITEMS:
         episode, arg = m.group(1), m.group(2)
-        if request.method == "GET":  # search: arg is the language
+        if request.method == "GET":
             stats["searches"] += 1
             time.sleep(0.16)
             if (EPISODE_NUMBER[episode], arg) in NO_MATCH:
@@ -186,21 +195,20 @@ def handle(route):
             return json_reply(route, [{"Id": f"demo-{arg}-{episode[:8]}", "ProviderName": "Open Subtitles",
                                        "Name": f"Maple.Street.S02E{EPISODE_NUMBER[episode]:02d}.{arg}.srt",
                                        "Format": "srt", "ThreeLetterISOLanguageName": arg, "DownloadCount": 1200}])
-        stats["downloads"] += 1  # POST: arg is the subtitle id
+        stats["downloads"] += 1
         time.sleep(0.2)
+        DOWNLOADED.setdefault(episode, []).append(arg.split("-")[1])
         return route.fulfill(status=204, body="")
     m = re.match(rf"^/Items/{ID}/Images/(\w+)", path)
     if m and m.group(1) in ITEMS:
         return route.fulfill(content_type="image/svg+xml", body=artwork(m.group(1), m.group(2)))
     m = re.match(rf"^(?:/Users/[0-9a-f]+)?/Items/{ID}$", path)
     if m and m.group(1) in ITEMS:
-        return json_reply(route, ITEMS[m.group(1)])
+        return json_reply(route, item(m.group(1)))
     if any(i in path or i in query for i in ITEMS):
-        return route.fulfill(status=404, body="")  # other per-item extras (similar, theme media, …) stay empty
+        return route.fulfill(status=404, body="")
     return route.continue_()
 
-
-# ---- Browser helpers ---------------------------------------------------------------------------------------------
 
 SESSION = json.dumps({"Servers": [{
     "ManualAddress": BASE, "manualAddressOnly": True, "Id": SERVER_ID, "Name": "Jellyfin",
@@ -210,7 +218,6 @@ SESSION = json.dumps({"Servers": [{
 LOGIN = (f"localStorage.setItem('jellyfin_credentials', {json.dumps(SESSION)});"
          f"localStorage.setItem('_deviceId2', {json.dumps(os.environ['JELLYFIN_DEVICE_ID'])});")
 
-# A visible mouse pointer for the video (headless browsers don't draw one).
 CURSOR = """window.addEventListener('DOMContentLoaded', () => {
   const c = document.createElement('div');
   c.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24"><path d="M3 2v17l4.6-4.4 3.3 7.4 3.1-1.4-3.3-7.2H17z" '
@@ -245,7 +252,7 @@ def open_season(page):
     page.goto(f"{BASE}/web/#/details?id={SEASON_ID}&serverId={SERVER_ID}")
     page.locator(".season-subs-btn:visible").wait_for(timeout=45000)
     page.wait_for_load_state("networkidle")
-    page.wait_for_timeout(1000)  # let images fade in
+    page.wait_for_timeout(1000)
 
 
 def glide(page, start, end, ms=600):
@@ -264,7 +271,6 @@ def centre(locator):
 
 
 def run_flow(page, pointer=None):
-    """Open the dialog, add Spanish next to English, start, and wait for the run to finish."""
     def click(locator, ms=650, pause=350):
         nonlocal pointer
         if pointer:
@@ -278,18 +284,20 @@ def run_flow(page, pointer=None):
     dialog = page.locator("[role=dialog]", has_text="Download subtitles")
     dialog.wait_for(timeout=15000)
     page.wait_for_timeout(1300 if pointer else 300)
-    select = dialog.locator("#season-subs-lang")
-    if pointer:
-        pointer = glide(page, pointer, centre(select), 600)
-        page.wait_for_timeout(300)
-    select.select_option("spa")  # native dropdowns don't show in recordings, so pick it directly
-    page.wait_for_timeout(500 if pointer else 100)
-    click(dialog.get_by_role("button", name="Add", exact=True), 450, 300)
+    click(dialog.locator("#season-subs-lang"), 600, 250)
+    page.keyboard.type("span", delay=140 if pointer else 0)
+    page.wait_for_timeout(700 if pointer else 100)
+    click(dialog.locator(".ssd-combo-opt[data-code=spa]"), 450, 300)
     page.wait_for_timeout(1300 if pointer else 300)
     return dialog, (lambda: click(dialog.get_by_role("button", name="Start", exact=True), 600, 400)), lambda: pointer
 
 
 failures = []
+
+
+def tiles(page):
+    return {label: int(num) for num, label in (
+        t.inner_text().split("\n", 1) for t in page.locator(".ssd-stat").all())}
 
 
 def check(condition, message):
@@ -301,25 +309,25 @@ def check(condition, message):
 with sync_playwright() as p:
     browser = p.chromium.launch()
 
-    # 1. Screenshots at 2x: the season page with the button, the dialog, and the finished run.
+    DOWNLOADED.clear()
     context, page = new_page(browser, viewport={"width": 1280, "height": 720}, device_scale_factor=2)
     open_season(page)
     page.screenshot(path=f"{OUT}/season.png")
     dialog, start, _ = run_flow(page)
     coverage = dialog.inner_text()
-    check("3 of 8 episodes already have eng subtitles" in coverage, "dialog counts existing English subtitles")
-    check("0 of 8 episodes already have spa subtitles" in coverage, "dialog counts existing Spanish subtitles")
+    check("3 of 8 episodes already have English subtitles" in coverage, "dialog counts existing English subtitles")
+    check("0 of 8 episodes already have Spanish subtitles" in coverage, "dialog counts existing Spanish subtitles")
     page.screenshot(path=f"{OUT}/dialog.png")
     start()
     page.locator("[role=dialog]", has_text="Done").wait_for(timeout=30000)
     page.wait_for_timeout(400)
     page.screenshot(path=f"{OUT}/done.png")
-    summary = page.locator("[role=status]").last.inner_text(timeout=5000)  # the summary toast
+    summary = tiles(page)
     print("summary:", summary)
-    check("3 skipped" in summary and "1 no match" in summary and "0 failed" in summary, "run summary adds up")
+    check(summary == {"Downloaded": 12, "Skipped": 3, "No match": 1, "Failed": 0}, "run summary adds up")
     context.close()
 
-    # 2. The demo video.
+    DOWNLOADED.clear()
     size = {"width": 1280, "height": 720}
     context, page = new_page(browser, cursor=True, viewport=size, record_video_dir=f"{OUT}/video", record_video_size=size)
     started = time.monotonic()
