@@ -395,6 +395,21 @@
     const CSS = `
 .ssd-overlay{position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;
   padding:16px;box-sizing:border-box;background:rgba(0,0,0,.6);animation:ssd-fade .15s ease-out}
+.ssd-dialog[data-scheme=dark],.ssd-pill,.ssd-toast{color-scheme:dark}
+.ssd-dialog[data-scheme=light]{color-scheme:light}
+.ssd-dialog button,.ssd-dialog label,.ssd-dialog li,.ssd-dialog a,.ssd-pill button{-webkit-tap-highlight-color:transparent}
+.ssd-icon-btn:active{opacity:1;background:rgba(128,128,128,.22)}
+.ssd-disclosure:active{background:rgba(128,128,128,.2)}
+.ssd-link:active{background:rgba(128,128,128,.15)}
+.ssd-ep:active,.ssd-combo-opt:active{background:rgba(128,128,128,.18)}
+@media (hover:hover) and (pointer:fine){
+  .ssd-icon-btn:hover{opacity:1;background:rgba(128,128,128,.22)}
+  .ssd-disclosure:hover{background:rgba(128,128,128,.2)}
+  .ssd-link:hover{background:rgba(128,128,128,.15)}
+  .ssd-ep:hover{background:rgba(128,128,128,.13)}
+  .ssd-combo-opt:hover{background:rgba(128,128,128,.22)}
+  .ssd-result-link:hover{text-decoration-color:currentColor}
+}
 .ssd-dialog{--ssd-accent:var(--jf-palette-primary-main,#00a4dc);--ssd-soft:rgba(128,128,128,.13);
   display:flex;flex-direction:column;width:min(540px,100%);max-height:100%;box-sizing:border-box;
   border-radius:14px;border:1px solid rgba(128,128,128,.22);box-shadow:0 20px 60px rgba(0,0,0,.55);
@@ -423,13 +438,18 @@
 .ssd-meter>span{display:block;height:100%;border-radius:3px;background:var(--ssd-accent)}
 .ssd-icon-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;
   padding:0;border:0;border-radius:50%;background:transparent;color:inherit;cursor:pointer;opacity:.7}
-.ssd-icon-btn:hover{opacity:1;background:rgba(128,128,128,.22)}
 .ssd-add{display:flex;gap:8px;align-items:stretch;margin-top:10px}
 .ssd-dialog .ssd-field{flex:1;min-width:0;box-sizing:border-box;margin:0;padding:.55em .8em;border-radius:8px;
   border:1px solid rgba(128,128,128,.45);background:transparent;color:inherit;font:inherit}
 .ssd-dialog .ssd-field:focus{border-color:var(--ssd-accent);outline:none}
 .ssd-dialog select.ssd-field option{color:initial}
-.ssd-dialog input[type=checkbox]{flex:none;width:18px;height:18px;margin:0;accent-color:var(--ssd-accent);cursor:pointer}
+.ssd-dialog input[type=checkbox]{-webkit-appearance:none;appearance:none;display:inline-grid;place-content:center;flex:none;
+  width:18px;height:18px;margin:0;box-sizing:border-box;border:2px solid rgba(128,128,128,.75);border-radius:4px;
+  background:transparent;cursor:pointer}
+.ssd-dialog input[type=checkbox]:checked{border-color:var(--ssd-accent);background:var(--ssd-accent)}
+.ssd-dialog input[type=checkbox]:checked::after{content:'';width:4px;height:9px;margin-top:-2px;
+  border:solid var(--jf-palette-primary-contrastText,rgba(0,0,0,.87));border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ssd-dialog input[type=checkbox]:focus-visible{outline:2px solid var(--ssd-accent);outline-offset:2px}
 .ssd-check{display:flex;align-items:flex-start;gap:12px;cursor:pointer}
 .ssd-check>input{margin-top:2px}
 .ssd-combo{margin-top:10px}
@@ -438,7 +458,7 @@
   border:1px solid rgba(128,128,128,.3);background:rgba(128,128,128,.08)}
 .ssd-combo-list[hidden]{display:none}
 .ssd-combo-opt{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 10px;border-radius:7px;cursor:pointer}
-.ssd-combo-opt:hover,.ssd-combo-opt.is-active{background:rgba(128,128,128,.22)}
+.ssd-combo-opt.is-active{background:rgba(128,128,128,.22)}
 .ssd-combo-opt.is-active{box-shadow:inset 3px 0 0 var(--ssd-accent)}
 .ssd-combo-opt[aria-disabled=true]{opacity:.5;cursor:default;background:none;box-shadow:none}
 .ssd-combo-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -459,17 +479,14 @@
 .ssd-disclosure{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:0;
   padding:.7em 14px;border:0;border-radius:10px;background:var(--ssd-soft);color:inherit;font:inherit;
   font-weight:600;text-align:left;cursor:pointer}
-.ssd-disclosure:hover{background:rgba(128,128,128,.2)}
 .ssd-disclosure::after{content:'';flex:none;width:7px;height:7px;margin:-4px 4px 0 0;border-right:2px solid currentColor;
   border-bottom:2px solid currentColor;transform:rotate(45deg);opacity:.7;transition:transform .15s}
 .ssd-disclosure[aria-expanded=true]::after{transform:rotate(-135deg);margin-top:4px}
 .ssd-links{display:flex;gap:4px;margin:8px 0 6px}
 .ssd-link{margin:0;padding:.35em .7em;border:0;border-radius:6px;background:transparent;color:var(--ssd-accent);
   font:inherit;font-size:.9em;font-weight:600;cursor:pointer}
-.ssd-link:hover{background:rgba(128,128,128,.15)}
 .ssd-eps{max-height:min(240px,32vh);overflow-y:auto;padding:4px;border-radius:10px;background:rgba(128,128,128,.08)}
 .ssd-ep{display:flex;align-items:center;gap:12px;padding:7px 10px;border-radius:7px;cursor:pointer}
-.ssd-ep:hover{background:rgba(128,128,128,.13)}
 .ssd-ep-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ssd-badges{display:flex;gap:4px;flex:none}
 .ssd-badge{padding:1px 7px;border-radius:5px;background:rgba(128,128,128,.25);font-size:.75em;font-weight:700;
@@ -493,7 +510,6 @@
 .ssd-result{padding:2px 0}
 .ssd-result-reason{opacity:.6}
 .ssd-result-link{color:inherit;text-decoration:underline;text-decoration-color:rgba(128,128,128,.6);text-underline-offset:2px}
-.ssd-result-link:hover{text-decoration-color:currentColor}
 .ssd-results-hint{margin-top:10px;font-size:.88em;opacity:.65}
 .season-subs-btn.ssd-compact .detailButton-icon-text{display:none}
 .ssd-pill{position:fixed;right:20px;bottom:20px;z-index:99997;display:flex;align-items:center;gap:2px;
@@ -589,12 +605,19 @@
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
 
+    function isDarkColor(color) {
+        const m = /rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/.exec(color || '');
+        if (!m) return true;
+        return (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 < 0.5;
+    }
+
     function mkBox() {
         const b = document.createElement('div');
         b.className = 'ssd-dialog';
         const t = themeColors();
         b.style.background = t ? t.bg : '#1f1f1f';
         b.style.color = t ? t.fg : '#fff';
+        b.dataset.scheme = !t || isDarkColor(t.bg) ? 'dark' : 'light';
         return b;
     }
 
@@ -1964,7 +1987,7 @@
             epLabel, distinctSeasonsCount, filterSelectedEpisodes, errStatus, isRetryable, describeErr,
             loadSubtitleProviders, withRetry, processEpisode, runBatch, isOfflineError, isProviderFailure, waitForServer, runRound, openOptionsDialog,
             openProgressDialog, injectButton, findButtonContainer, ensureStyles, fitButton,
-            toast, themeColors, focusables, trapTab, loadCultures, mkLanguageCombo, searchLanguages, suggestLanguages, primaryName, checkRoute, startRun
+            toast, themeColors, isDarkColor, focusables, trapTab, loadCultures, mkLanguageCombo, searchLanguages, suggestLanguages, primaryName, checkRoute, startRun
         }
     };
 

@@ -350,6 +350,19 @@ describe('dialogs', () => {
             expect(box.style.background).toMatch(/^(#1f1f1f|rgb\(31,\s*31,\s*31\))$/);
         });
 
+        it('marks the dialog dark or light so native controls match the theme', () => {
+            const I = loadSeasonSubs()._internals;
+            openOptions(I);
+            expect(document.querySelector('.ssd-dialog').dataset.scheme).toBe('dark');
+            document.body.innerHTML = '';
+            document.body.style.backgroundColor = 'rgb(242, 242, 242)';
+            document.body.style.color = 'rgba(0, 0, 0, 0.87)';
+            openOptions(I);
+            expect(document.querySelector('.ssd-dialog').dataset.scheme).toBe('light');
+            expect(I.isDarkColor('rgb(16, 16, 16)')).toBe(true);
+            expect(I.isDarkColor('rgb(213, 233, 242)')).toBe(false);
+        });
+
         it('picks up the active theme colors when the page provides them', () => {
             document.body.style.backgroundColor = 'rgb(250, 250, 250)';
             document.body.style.color = 'rgb(16, 16, 16)';
