@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { loadSeasonSubs } from './helpers/load-script.mjs';
+import { loadSeasonSubs, makeApiClientStub } from './helpers/load-script.mjs';
 
 function findByText(tag, text) {
     return Array.from(document.querySelectorAll(tag)).find(el => el.textContent === text);
@@ -205,6 +205,19 @@ describe('dialogs', () => {
             I.checkRoute();
             expect(progress.isHidden()).toBe(true);
             expect(document.querySelector('.ssd-pill')).not.toBeNull();
+        });
+
+        it('links failed and missing episodes to their pages', () => {
+            const I = loadSeasonSubs(makeApiClientStub({ serverId: () => 'srv' }))._internals;
+            const progress = I.openProgressDialog('A');
+            progress.renderFailures(
+                [{ episodeId: 'e1', language: 'eng', label: 'S1E1 · English', reason: 'x' }],
+                [{ episodeId: 'e2', language: 'eng', label: 'S1E2 <b> · English' }]
+            );
+            const links = Array.from(document.querySelectorAll('.ssd-result-link'));
+            expect(links.map(a => a.getAttribute('href'))).toEqual(['#/details?id=e1&serverId=srv', '#/details?id=e2&serverId=srv']);
+            expect(links[1].textContent).toBe('S1E2 <b> · English');
+            expect(document.body.textContent).toContain(I.STR.resultsHint);
         });
 
         it('removes the overlay on close', () => {

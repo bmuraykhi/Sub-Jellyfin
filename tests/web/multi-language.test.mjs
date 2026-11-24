@@ -52,10 +52,11 @@ function makeProgress(answer) {
         cancelToken: { cancelled: false },
         setCounts(c) { calls.setCounts.push({ ...c }); },
         setProgress(idx, total, label) { calls.setProgress.push({ idx, total, label }); },
-        renderFailures() {},
+        renderFailures(failed, missing) { this.lastFailures = { failed, missing }; },
         finish(args) { this.finishArgs = args; },
         fail(msg) { this.failMessage = msg; },
-        startRound() {},
+        startedRounds: [],
+        startRound(title) { this.startedRounds.push(title); },
         _calls: calls
     };
 }
@@ -118,7 +119,7 @@ describe('multi-language batch runner', () => {
         expect(result.counts.downloaded).toBe(1);
         expect(result.counts.failed).toBe(1);
         expect(result.failed).toEqual([
-            { episodeId: 'e1', language: 'fra', label: expect.stringContaining('[fra]'), reason: 'the server or the subtitle provider had a problem (error 500)' }
+            { episodeId: 'e1', language: 'fra', label: expect.stringContaining('· fra'), reason: 'the server or the subtitle provider had a problem (error 500)' }
         ]);
     });
 
@@ -297,7 +298,7 @@ describe('multi-language batch runner', () => {
         const result = await I.runRound(progress, opts, fetchEpsForRound);
 
         expect(result.failed).toEqual([
-            { episodeId: 'e1', language: 'fra', label: expect.stringContaining('[fra]'), reason: 'the server or the subtitle provider had a problem (error 500)' }
+            { episodeId: 'e1', language: 'fra', label: expect.stringContaining('· fra'), reason: 'the server or the subtitle provider had a problem (error 500)' }
         ]);
         expect(progress.finishArgs.hasFailures).toBe(true);
         expect(typeof progress.finishArgs.retryHandler).toBe('function');
@@ -307,6 +308,42 @@ describe('multi-language batch runner', () => {
         const round2 = stub.calls.slice(before);
 
         expect(round2).toEqual([{ type: 'search', episodeId: 'e1', language: 'fra' }]);
+    });
+
+    it('keeps the first run results when retrying, and lists what still fails', async () => {
+        let fraAttempts = 0;
+        const stub = makeAjaxStub({
+            search: (episodeId, lang) => {
+                if (episodeId === 'e3') return [];
+                if (lang === 'fra' && episodeId === 'e1' && ++fraAttempts === 1) throw { status: 500 };
+                if (lang === 'fra' && episodeId === 'e2') throw { status: 500 };
+                return [{ Id: 'r1' }];
+            },
+            download: () => ({})
+        });
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
+        const I = subs._internals;
+        const progress = makeProgress();
+        const episodes = [ep('e1', 1, 'A'), ep('e2', 2, 'B'), ep('e3', 3, 'C')];
+        const opts = {
+            languages: ['eng', 'fra'], languageNames: { eng: 'English', fra: 'French' },
+            skipExisting: false, topVariants: 1, maxRetries: 0, requestDelayMs: 0
+        };
+
+        const first = await I.runRound(progress, opts, async () => episodes);
+        expect(first.counts).toEqual({ downloaded: 2, skipped: 0, missing: 2, failed: 2 });
+        expect(first.failed.map(f => f.label)).toEqual([
+            I.STR.labelWithLang(I.epLabel(episodes[0]), 'French'),
+            I.STR.labelWithLang(I.epLabel(episodes[1]), 'French')
+        ]);
+
+        await progress.finishArgs.retryHandler();
+
+        expect(progress.startedRounds).toEqual([I.STR.progTitleRetry(2)]);
+        expect(progress._calls.setCounts.at(-1)).toEqual({ downloaded: 3, skipped: 0, missing: 2, failed: 1 });
+        expect(progress.lastFailures.failed.map(f => f.episodeId)).toEqual(['e2']);
+        expect(progress.lastFailures.missing).toHaveLength(2);
+        expect(progress.finishArgs.hasFailures).toBe(true);
     });
 
     it('stops all further per-language processing, including no-network skips, once cancelled between languages', async () => {
@@ -362,7 +399,7 @@ describe('multi-language batch runner', () => {
         expect(result.counts.downloaded).toBe(2);
     });
 
-    it('single-language runs produce the same counts as before, with [lang]-suffixed labels', async () => {
+    it('single-language runs produce the same counts as before, with the language in the label', async () => {
         const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}) });
         const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
         const I = subs._internals;

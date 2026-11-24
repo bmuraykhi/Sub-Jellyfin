@@ -43,7 +43,7 @@
         dlgRemoveLanguage: (lang) => `Remove ${lang}`,
         dlgLanguagesRequired: 'Add at least one language',
         dlgHasSubtitle: (name) => `Already has ${name} subtitles`,
-        labelWithLang: (label, lang) => `${label} [${lang}]`,
+        labelWithLang: (label, langName) => `${label} · ${langName}`,
         dlgSkipLabel: 'Skip episodes that already have a subtitle in that language',
         dlgVariantsLabel: 'Variants per episode',
         dlgVariantsHint: 'Downloads the top 1–5 ranked subtitles for each episode. More than one helps when the best match is out of sync.',
@@ -57,7 +57,9 @@
         btnClose: 'Close',
         btnRetry: 'Retry Failed',
         progTitle: 'Downloading subtitles',
-        progTitleRetry: 'Retrying failed',
+        progTitleRetry: (n) => `Retrying ${n} failed download${n === 1 ? '' : 's'}`,
+        noteCounts: (eps, langs) => `Each episode counts once per language: ${eps} episode${eps === 1 ? '' : 's'} × ${langs} languages = ${eps * langs}.`,
+        resultsHint: 'Open an episode to search for its subtitles yourself: ⋮ → Edit subtitles.',
         progTitleDone: 'Done',
         progTitleCancelled: 'Cancelled',
         progTitleError: 'Error',
@@ -488,6 +490,9 @@
 .ssd-results h4{margin:10px 0 4px;font-size:.75em;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
 .ssd-result{padding:2px 0}
 .ssd-result-reason{opacity:.6}
+.ssd-result-link{color:inherit;text-decoration:underline;text-decoration-color:rgba(128,128,128,.6);text-underline-offset:2px}
+.ssd-result-link:hover{text-decoration-color:currentColor}
+.ssd-results-hint{margin-top:10px;font-size:.88em;opacity:.65}
 .season-subs-btn.ssd-compact .detailButton-icon-text{display:none}
 .ssd-pill{position:fixed;right:20px;bottom:20px;z-index:99997;display:flex;align-items:center;gap:2px;
   width:min(360px,calc(100vw - 40px));padding:0 6px 0 0;box-sizing:border-box;border-radius:12px;background:rgba(24,24,24,.97);
@@ -1336,18 +1341,26 @@
             if (hidden) updatePill();
         }
 
+        function episodeLink(entry) {
+            if (!entry.episodeId) return escHtml(entry.label);
+            const sid = typeof ApiClient.serverId === 'function' ? ApiClient.serverId() : '';
+            const href = `#/details?id=${encodeURIComponent(entry.episodeId)}${sid ? `&serverId=${encodeURIComponent(sid)}` : ''}`;
+            return `<a class="ssd-result-link" href="${escHtml(href)}">${escHtml(entry.label)}</a>`;
+        }
+
         function renderFailures(failed, missing) {
             const items = [];
             if (failed.length) {
                 items.push(`<h4>${escHtml(STR.sectionFailed)}</h4>`);
                 failed.forEach(f => items.push(
-                    `<div class="ssd-result">${escHtml(f.label)} <span class="ssd-result-reason">— ${escHtml(f.reason)}</span></div>`));
+                    `<div class="ssd-result">${episodeLink(f)} <span class="ssd-result-reason">— ${escHtml(f.reason)}</span></div>`));
             }
             if (missing.length) {
                 items.push(`<h4>${escHtml(STR.sectionMissing)}</h4>`);
-                missing.forEach(m => items.push(`<div class="ssd-result">${escHtml(m.label)}</div>`));
+                missing.forEach(m => items.push(`<div class="ssd-result">${episodeLink(m)}</div>`));
             }
             if (items.length) {
+                items.push(`<div class="ssd-results-hint">${escHtml(STR.resultsHint)}</div>`);
                 failBox.innerHTML = items.join('');
                 failBox.style.display = 'block';
             } else {
@@ -1476,14 +1489,29 @@
         throw lastErr || new Error('all variants failed');
     }
 
+    function pairKey(episodeId, language) {
+        return episodeId + '|' + language;
+    }
+
     async function runBatch(progress, episodes, opts) {
         const counts = { downloaded: 0, skipped: 0, missing: 0, failed: 0 };
         const failed = [];
         const missing = [];
+        const done = new Set();
         const isCancelled = () => progress.cancelToken.cancelled;
+        const names = opts.languageNames || {};
+        const base = opts.base || null;
         let streak = 0;
+        const shown = () => (base
+            ? {
+                downloaded: base.counts.downloaded + counts.downloaded,
+                skipped: base.counts.skipped + counts.skipped,
+                missing: base.counts.missing + counts.missing,
+                failed: base.counts.failed - counts.downloaded - counts.skipped - counts.missing
+            }
+            : { ...counts });
 
-        progress.setCounts(counts);
+        progress.setCounts(shown());
 
         episodeLoop:
         for (let i = 0; i < episodes.length; i++) {
@@ -1495,11 +1523,12 @@
             for (let li = 0; li < langs.length; li++) {
                 if (isCancelled()) break episodeLoop;
                 const lang = langs[li];
-                const langLabel = STR.labelWithLang(label, lang);
+                const langLabel = STR.labelWithLang(label, names[lang] || lang);
                 progress.setProgress(i, episodes.length, langLabel);
 
                 if (opts.skipExisting && alreadyHasSubtitle(ep, lang)) {
                     counts.skipped++;
+                    done.add(pairKey(ep.Id, lang));
                 } else {
                     let kind = null;
                     let error = null;
@@ -1518,6 +1547,7 @@
                             error = e;
                         }
                     }
+                    done.add(pairKey(ep.Id, lang));
                     if (kind === 'downloaded') {
                         counts.downloaded++;
                         streak = 0;
@@ -1531,7 +1561,7 @@
                         streak = isProviderFailure(error) ? streak + 1 : 0;
                     }
                 }
-                progress.setCounts(counts);
+                progress.setCounts(shown());
 
                 if (streak >= PROVIDER_FAILURE_STREAK && progress.pause && !isCancelled()) {
                     const choice = await progress.pause(STR.pausedProvider(streak), [
@@ -1561,9 +1591,13 @@
         if (!isCancelled()) {
             progress.setProgress(episodes.length, episodes.length, '');
         }
-        progress.renderFailures(failed, missing);
+        const allFailed = base
+            ? failed.concat(base.failed.filter(f => !done.has(pairKey(f.episodeId, f.language))))
+            : failed;
+        const allMissing = base ? base.missing.concat(missing) : missing;
+        progress.renderFailures(allFailed, allMissing);
 
-        return { counts, failed, missing, cancelled: isCancelled() };
+        return { counts: shown(), failed: allFailed, missing: allMissing, cancelled: isCancelled() };
     }
 
     async function runRound(progress, opts, fetchEpsForRound, roundOpts) {
@@ -1572,6 +1606,8 @@
             progress.fail(STR.retryNoMatch);
             return { counts: { downloaded: 0, skipped: 0, missing: 0, failed: 0 }, failed: [], missing: [], cancelled: false };
         }
+        const langCount = opts.languages ? opts.languages.length : 1;
+        if (progress.setNote) progress.setNote(langCount > 1 && !opts.base ? STR.noteCounts(eps.length, langCount) : '');
         const result = await runBatch(progress, eps, opts);
         const c = result.counts;
         if (!result.cancelled && c.missing > 0 && c.downloaded === 0 && c.failed === 0 && progress.setNote) {
@@ -1583,12 +1619,13 @@
             hasFailures: stillFailing,
             retryHandler: stillFailing
                 ? async () => {
-                    progress.startRound(STR.progTitleRetry);
+                    progress.startRound(STR.progTitleRetry(result.failed.length));
                     const langsByEpisode = {};
                     result.failed.forEach(f => {
                         (langsByEpisode[f.episodeId] = langsByEpisode[f.episodeId] || []).push(f.language);
                     });
-                    await runRound(progress, { ...opts, languagesByEpisode: langsByEpisode }, async () => {
+                    const base = { counts: result.counts, failed: result.failed, missing: result.missing };
+                    await runRound(progress, { ...opts, languagesByEpisode: langsByEpisode, base }, async () => {
                         const all = await fetchEpsForRound();
                         return all.filter(ep => langsByEpisode[ep.Id]);
                     }, { isRetry: true });
@@ -1745,7 +1782,10 @@
                 if (!opts) return;
                 const chosen = filterSelectedEpisodes(episodes, opts.episodeIds);
                 if (chosen.length === 0) return;
+                const languageNames = {};
+                (cultures || []).forEach(c => { languageNames[c.code] = primaryName(c.label); });
                 const fullOpts = {
+                    languageNames,
                     languages: opts.languages,
                     skipExisting: opts.skipExisting,
                     topVariants: opts.topVariants,
