@@ -8,6 +8,16 @@ compares internally.
 
 ## [Unreleased]
 
+## [3.1.0.1] – 2026-11-24
+
+### Fixed
+
+- On phones, unticked checkboxes and the number field's arrows showed as bright
+  white boxes in the dark dialog. They now follow the Jellyfin theme, light or
+  dark.
+- On touch screens, a tapped link or episode row stayed highlighted after the
+  tap.
+
 ## [3.1.0.0] – 2026-11-24
 
 ### Added
