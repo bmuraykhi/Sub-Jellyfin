@@ -7,11 +7,6 @@
     const PLUGIN_GUID = 'a3c0e5c3-7d0d-4b91-9d1c-2e6f9b3a1c5d';
     const LOG = '[season-subs]';
 
-    // Verbose debug logging is gated by localStorage so it doesn't spam consoles
-    // for users who don't need it. Toggle from the browser console:
-    //     window.__seasonSubs.enableDebug()   // verbose, reloads page
-    //     window.__seasonSubs.disableDebug()  // back to quiet, reloads page
-    //     window.__seasonSubs.status()        // one-shot snapshot of plugin state
     const DEBUG = (() => {
         try { return localStorage.getItem('seasonSubsDebug') === '1'; }
         catch (_) { return false; }
@@ -26,8 +21,6 @@
     console.log(LOG, 'script loaded. For diagnostics run: window.__seasonSubs.status()  — for verbose logs: window.__seasonSubs.enableDebug()');
     if (DEBUG) console.log(LOG, 'DEBUG mode ON');
 
-    // All user-visible strings. Centralized for future localization — swap this
-    // object out (or wrap it with a loader) to translate the UI in one place.
     const STR = {
         btnLabel: 'Download Subs',
         btnTitleSeason: 'Download subtitles for every episode in this season',
@@ -90,8 +83,6 @@
     let cachedConfig = null;
     let cachedUser = null;
     let cachedCultures = null;
-
-    // ---------- helpers ----------
 
     function debounce(fn, wait) {
         let t;
@@ -210,8 +201,6 @@
         return episodes.filter(ep => wanted.has(ep.Id));
     }
 
-    // ---------- API calls ----------
-
     async function fetchEpisodes(seriesId, seasonId) {
         const userId = ApiClient.getCurrentUserId();
         const params = {
@@ -275,12 +264,6 @@
         }
     }
 
-    // ---------- DOM helpers ----------
-
-    // ---------- look & feel ----------
-
-    // One stylesheet for both dialogs and the toast. Colours come from the active Jellyfin theme where it exposes
-    // them (--jf-palette-*) and otherwise from neutral greys that read on light and dark themes alike.
     const STYLE_ID = 'season-subs-style';
     const CSS = `
 .ssd-overlay{position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;
@@ -443,7 +426,6 @@
         return b;
     }
 
-    // A dialog frame: header (title + one-line subtitle), scrolling body, footer for the buttons.
     function mkDialog(titleId, titleText, subText) {
         const overlay = mkOverlay();
         overlay.setAttribute('role', 'presentation');
@@ -472,11 +454,7 @@
         const b = document.createElement('button');
         b.type = 'button';
         b.textContent = label;
-        // 'raised' is what jellyfin-web's own dialog buttons use: it gives secondary buttons the theme's button colours.
-        // Without it they fall back to the browser's light default button with the dialog's light text on top.
         b.className = 'emby-button raised ssd-btn' + (primary ? ' button-submit' : '');
-        // The footer spaces its buttons with `gap`. Some themes give .button-submit a large !important top margin
-        // (meant for full-page forms), which would push the primary button out of line, so override it here.
         b.style.setProperty('margin', '0', 'important');
         return b;
     }
@@ -513,8 +491,6 @@
         document.body.appendChild(t);
         setTimeout(() => t.remove(), ms);
     }
-
-    // ---------- options dialog ----------
 
     function mkLanguagePicker({ cultures, initial }) {
         if (!cultures || cultures.length === 0) {
@@ -574,7 +550,6 @@
             (cultures || []).forEach(c => { names[c.code] = c.label; });
             const langName = code => names[code] || code;
 
-            // --- Languages: one row per language with its current coverage, then the picker to add more.
             const langSection = mkSection(STR.dlgLanguagesLabel);
             const langList = el('div', { className: 'ssd-langs' });
             const langPicker = mkLanguagePicker({ cultures, initial: defaultLang });
@@ -644,7 +619,6 @@
             if (!langPicker.isSelect) langSection.appendChild(langError);
             langSection.appendChild(languagesError);
 
-            // --- Options
             const optSection = mkSection(STR.dlgOptionsLabel);
             const skipRow = el('label', { className: 'ssd-check' });
             const skipCb = el('input', { type: 'checkbox' });
@@ -660,7 +634,6 @@
             variantsRow.append(variantsLabel, variantsInput);
             optSection.append(skipRow, variantsRow, el('div', { className: 'ssd-hint' }, STR.dlgVariantsHint));
 
-            // --- Episodes: collapsed by default; each row shows which chosen languages it already has.
             const rows = [];
             const noEpisodesError = el('div', { className: 'ssd-error', style: 'display:none;' }, STR.dlgNoEpisodesSelected);
             const selectedCount = () => rows.filter(r => r.cb.checked).length;
@@ -737,7 +710,6 @@
             renderLanguages();
             renderBadges();
 
-            // --- Footer
             const cancelBtn = mkButton(STR.btnCancel, false);
             const startBtn = mkButton(STR.btnStart, true);
 
@@ -772,7 +744,6 @@
                 if (e.key === 'Escape') { e.preventDefault(); close(null); return; }
                 if (e.key !== 'Enter') return;
                 const active = document.activeElement;
-                // Enter on a button presses that button; in the language code field it adds the language.
                 if (active && active.tagName === 'BUTTON' && active !== startBtn) return;
                 e.preventDefault();
                 if (active === langPicker.el && !langPicker.isSelect) addLanguage();
@@ -795,8 +766,6 @@
         });
     }
 
-    // ---------- progress dialog ----------
-
     function openProgressDialog() {
         const { overlay, box, title, sub: current, body, foot } = mkDialog('season-subs-progress-title', STR.progTitle, '');
         const prevFocus = document.activeElement;
@@ -810,7 +779,6 @@
         const barInner = el('div');
         bar.appendChild(barInner);
 
-        // Four tiles; each tile's text reads e.g. "3 Downloaded" (number, space, label).
         const stats = el('div', { className: 'ssd-stats' });
         function mkStat(label) {
             const tile = el('div', { className: 'ssd-stat' });
@@ -955,8 +923,6 @@
         return { cancelToken, setCounts, setProgress, renderFailures, finish, fail, close, startRound };
     }
 
-    // ---------- batch runner ----------
-
     async function processEpisode(ep, lang, opts, isCancelled) {
         const search = await withRetry(() => searchSubtitles(ep.Id, lang), opts.maxRetries, 500, isCancelled);
         const results = Array.isArray(search) ? search.filter(r => r && r.Id) : [];
@@ -1084,8 +1050,6 @@
         }
     }
 
-    // ---------- button injection ----------
-
     function findButtonContainer(visiblePage) {
         const containerSelectors = [
             '.mainDetailButtons',
@@ -1112,9 +1076,6 @@
 
         const buttonTitle = ctx.mode === 'series' ? STR.btnTitleSeries : STR.btnTitleSeason;
 
-        // createElement with { is } is required for Jellyfin's customized-built-in
-        // <button is="emby-button"> to be upgraded. Setting the attribute afterwards
-        // does not trigger custom-element registration.
         let button;
         try {
             button = document.createElement('button', { is: 'emby-button' });
@@ -1149,7 +1110,7 @@
             e.stopPropagation();
             if (button.disabled) return;
             button.disabled = true;
-            icon.textContent = 'hourglass_empty';  // episodes and languages are loading
+            icon.textContent = 'hourglass_empty';
             try {
                 const [config, user, episodes, cultures] = await Promise.all([
                     loadConfig(),
@@ -1207,17 +1168,12 @@
         return true;
     }
 
-    // ---------- page detection ----------
-
     function findVisibleDetailPage() {
-        // Jellyfin can keep multiple cached #itemDetailPage nodes in the DOM during
-        // navigation. Prefer the last one without `.hide` (the most-recently rendered).
         const pages = document.querySelectorAll('#itemDetailPage');
         for (let i = pages.length - 1; i >= 0; i--) {
             const p = pages[i];
             if (!p.classList.contains('hide') && p.offsetParent !== null) return p;
         }
-        // Fallback: any not-hidden page, even if offsetParent check fails.
         for (let i = pages.length - 1; i >= 0; i--) {
             if (!pages[i].classList.contains('hide')) return pages[i];
         }
@@ -1322,7 +1278,6 @@
         console.log(LOG, 'initialized');
     }
 
-    // Console-accessible diagnostics. Persists across IIFE re-entries.
     window.__seasonSubs = {
         enableDebug() {
             try { localStorage.setItem('seasonSubsDebug', '1'); } catch (_) {}
