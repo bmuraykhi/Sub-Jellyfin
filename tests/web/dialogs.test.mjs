@@ -328,6 +328,19 @@ describe('dialogs', () => {
             expect(document.activeElement).toBe(startBtn);
         });
 
+        it('draws a line under the header only while the content is scrolled', () => {
+            const I = loadSeasonSubs()._internals;
+            openOptions(I);
+            const box = document.querySelector('.ssd-dialog');
+            const body = box.querySelector('.ssd-body');
+            body.scrollTop = 40;
+            body.dispatchEvent(new Event('scroll'));
+            expect(box.classList.contains('is-scrolled')).toBe(true);
+            body.scrollTop = 0;
+            body.dispatchEvent(new Event('scroll'));
+            expect(box.classList.contains('is-scrolled')).toBe(false);
+        });
+
         it('falls back to the dark palette when no theme background is detected', () => {
             const subs = loadSeasonSubs();
             const I = subs._internals;

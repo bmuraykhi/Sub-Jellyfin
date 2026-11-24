@@ -399,14 +399,16 @@
   display:flex;flex-direction:column;width:min(540px,100%);max-height:100%;box-sizing:border-box;
   border-radius:14px;border:1px solid rgba(128,128,128,.22);box-shadow:0 20px 60px rgba(0,0,0,.55);
   font-family:inherit;line-height:1.45;overflow:hidden;animation:ssd-pop .18s ease-out}
-.ssd-head{display:flex;align-items:flex-start;gap:8px;padding:22px 14px 6px 24px}
+.ssd-head{display:flex;align-items:flex-start;gap:8px;padding:22px 14px 12px 24px;border-bottom:1px solid transparent;
+  transition:border-color .15s}
+.ssd-dialog.is-scrolled .ssd-head{border-bottom-color:rgba(128,128,128,.18)}
 .ssd-head-text{flex:1;min-width:0;padding-right:10px}
 .ssd-head-actions{display:flex;gap:2px;margin-top:-4px}
 .ssd-head-actions:empty{display:none}
 .ssd-title{margin:0;font-size:1.35em;font-weight:500;line-height:1.25}
 .ssd-sub{margin-top:4px;font-size:.92em;opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ssd-sub:empty{display:none}
-.ssd-body{padding:6px 24px 10px;overflow-y:auto;overscroll-behavior:contain}
+.ssd-body{padding:0 24px 10px;overflow-y:auto;overscroll-behavior:contain}
 .ssd-foot{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;padding:14px 24px 18px;
   border-top:1px solid rgba(128,128,128,.18)}
 .ssd-section{margin-top:16px}
@@ -511,7 +513,7 @@
 @media (max-width:600px){
   .ssd-overlay{padding:0;align-items:flex-end}
   .ssd-dialog{width:100%;max-height:92%;border-radius:18px 18px 0 0;border-width:1px 0 0}
-  .ssd-head{padding:20px 10px 4px 18px}.ssd-body{padding:4px 18px 10px}
+  .ssd-head{padding:20px 10px 10px 18px}.ssd-body{padding:0 18px 10px}
   .ssd-foot{padding:12px 18px calc(14px + env(safe-area-inset-bottom,0px))}
   .ssd-stats{grid-template-columns:repeat(2,1fr)}
   .ssd-meter{width:48px}
@@ -611,6 +613,7 @@
         const headActions = el('div', { className: 'ssd-head-actions' });
         head.append(headText, headActions);
         const body = el('div', { className: 'ssd-body' });
+        body.addEventListener('scroll', () => box.classList.toggle('is-scrolled', body.scrollTop > 0), { passive: true });
         const foot = el('div', { className: 'ssd-foot' });
         box.append(head, body, foot);
         overlay.appendChild(box);
