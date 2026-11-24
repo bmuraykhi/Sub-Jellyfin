@@ -61,6 +61,17 @@ describe('dialogs', () => {
             expect(result).toEqual({ languages: ['eng', 'fra'], skipExisting: true, topVariants: 1 });
         });
 
+        it('resolves with null when the page changes underneath it', async () => {
+            const subs = loadSeasonSubs();
+            const I = subs._internals;
+            window.location.hash = '#/details?id=a';
+            const p = openOptions(I);
+            window.location.hash = '#/details?id=b';
+            I.checkRoute();
+            expect(await p).toBeNull();
+            expect(document.querySelector('.ssd-overlay')).toBeNull();
+        });
+
         it('resolves with null and removes the overlay on Escape', async () => {
             const subs = loadSeasonSubs();
             const I = subs._internals;
@@ -104,6 +115,80 @@ describe('dialogs', () => {
             progress.finish({ cancelled: false, hasFailures: false });
             const closeBtn = findByText('button', I.STR.btnClose);
             expect(closeBtn.style.display).not.toBe('none');
+        });
+
+        it('hides instead of cancelling when Escape is pressed during a run, and comes back from the status card', () => {
+            const subs = loadSeasonSubs();
+            const I = subs._internals;
+            const progress = I.openProgressDialog('Maple Street');
+            progress.setProgress(2, 10, 'S1E3 — Three');
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+            expect(progress.cancelToken.cancelled).toBe(false);
+            expect(document.querySelector('.ssd-overlay').style.display).toBe('none');
+            const pill = document.querySelector('.ssd-pill');
+            expect(pill.textContent).toContain('Maple Street');
+            expect(pill.textContent).toContain(I.STR.progCount(3, 10));
+
+            pill.querySelector('.ssd-pill-main').click();
+            expect(document.querySelector('.ssd-pill')).toBeNull();
+            expect(document.querySelector('.ssd-overlay').style.display).toBe('');
+        });
+
+        it('shows the outcome on the status card when a hidden run finishes', () => {
+            const subs = loadSeasonSubs();
+            const I = subs._internals;
+            const progress = I.openProgressDialog('Maple Street');
+            progress.hide();
+            progress.setCounts({ downloaded: 4, skipped: 0, missing: 1, failed: 2 });
+            progress.finish({ cancelled: false, hasFailures: true, retryHandler: () => Promise.resolve() });
+
+            const pill = document.querySelector('.ssd-pill');
+            expect(pill.textContent).toContain(I.STR.progTitleDone);
+            expect(pill.textContent).toContain(I.STR.pillSummary({ downloaded: 4, skipped: 0, missing: 1, failed: 2 }));
+            pill.querySelector('[aria-label="' + I.STR.pillDismiss + '"]').click();
+            expect(document.querySelector('.ssd-pill')).toBeNull();
+            expect(document.querySelector('.ssd-overlay')).toBeNull();
+        });
+
+        it('closes on Escape once the run is over', () => {
+            const subs = loadSeasonSubs();
+            const I = subs._internals;
+            const progress = I.openProgressDialog('Maple Street');
+            progress.finish({ cancelled: false, hasFailures: false });
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            expect(document.querySelector('.ssd-overlay')).toBeNull();
+        });
+
+        it('hides a running download when the page changes, and closes a finished one with nothing to follow up', () => {
+            const subs = loadSeasonSubs();
+            const I = subs._internals;
+            window.location.hash = '#/details?id=a';
+            const running = I.openProgressDialog('A');
+            window.location.hash = '#/details?id=b';
+            I.checkRoute();
+            expect(running.isHidden()).toBe(true);
+            running.close();
+
+            const done = I.openProgressDialog('B');
+            done.renderFailures([], []);
+            done.finish({ cancelled: false, hasFailures: false });
+            window.location.hash = '#/details?id=c';
+            I.checkRoute();
+            expect(document.querySelector('.ssd-overlay')).toBeNull();
+        });
+
+        it('keeps a finished run with failures as a status card when the page changes', () => {
+            const subs = loadSeasonSubs();
+            const I = subs._internals;
+            window.location.hash = '#/details?id=a';
+            const progress = I.openProgressDialog('A');
+            progress.renderFailures([{ episodeId: 'e1', language: 'eng', label: 'S1E1', reason: 'x' }], []);
+            progress.finish({ cancelled: false, hasFailures: true, retryHandler: () => Promise.resolve() });
+            window.location.hash = '#/details?id=b';
+            I.checkRoute();
+            expect(progress.isHidden()).toBe(true);
+            expect(document.querySelector('.ssd-pill')).not.toBeNull();
         });
 
         it('removes the overlay on close', () => {
@@ -197,10 +282,10 @@ describe('dialogs', () => {
             const I = subs._internals;
             openOptions(I);
             const startBtn = findByText('button', I.STR.btnStart);
-            const firstChipBtn = document.querySelector(`[aria-label="${I.STR.dlgRemoveLanguage('eng')}"]`);
+            const headerClose = document.querySelector('.ssd-head-actions button');
             startBtn.focus();
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
-            expect(document.activeElement).toBe(firstChipBtn);
+            expect(document.activeElement).toBe(headerClose);
         });
 
         it('wraps Shift+Tab from the first focusable to the last inside the options dialog', () => {
@@ -208,8 +293,8 @@ describe('dialogs', () => {
             const I = subs._internals;
             openOptions(I);
             const startBtn = findByText('button', I.STR.btnStart);
-            const firstChipBtn = document.querySelector(`[aria-label="${I.STR.dlgRemoveLanguage('eng')}"]`);
-            firstChipBtn.focus();
+            const headerClose = document.querySelector('.ssd-head-actions button');
+            headerClose.focus();
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }));
             expect(document.activeElement).toBe(startBtn);
         });

@@ -67,14 +67,20 @@
         countMissing: (n) => `${n} No match`,
         countFailed: (n) => `${n} Failed`,
         cancelInProgress: 'Cancelling…',
+        btnHide: 'Hide (keeps downloading)',
+        pillShow: 'Show subtitle download',
+        pillDismiss: 'Dismiss',
+        pillSummary: (c) => [
+            `${c.downloaded} downloaded`,
+            c.skipped ? `${c.skipped} skipped` : '',
+            c.missing ? `${c.missing} no match` : '',
+            c.failed ? `${c.failed} failed` : ''
+        ].filter(Boolean).join(', '),
+        progCount: (i, n) => `${i} of ${n}`,
         sectionFailed: 'Failed',
         sectionMissing: 'No match',
         toastNoEpisodesSeason: 'No episodes found in this season',
         toastNoEpisodesSeries: 'No episodes found in this series',
-        toastSummary: (verb, c) =>
-            `${verb} — ${c.downloaded} downloaded · ${c.skipped} skipped · ${c.missing} no match · ${c.failed} failed`,
-        toastVerbDone: 'Done',
-        toastVerbCancelled: 'Cancelled',
         toastRunFailed: 'Could not start subtitle run',
         errNotDelivered: 'the subtitle never showed up on the episode, so the provider probably failed (check its login and daily limit)'
     };
@@ -82,6 +88,7 @@
     const VERIFY_TIMEOUT_MS = 6000;
 
     let lastEvaluated = { itemId: null, applicable: false, ctx: null };
+    let activeProgress = null;
     let observerStarted = false;
     let cachedConfig = null;
     let cachedUser = null;
@@ -302,7 +309,10 @@
   display:flex;flex-direction:column;width:min(540px,100%);max-height:100%;box-sizing:border-box;
   border-radius:14px;border:1px solid rgba(128,128,128,.22);box-shadow:0 20px 60px rgba(0,0,0,.55);
   font-family:inherit;line-height:1.45;overflow:hidden;animation:ssd-pop .18s ease-out}
-.ssd-head{padding:22px 24px 6px}
+.ssd-head{display:flex;align-items:flex-start;gap:8px;padding:22px 14px 6px 24px}
+.ssd-head-text{flex:1;min-width:0;padding-right:10px}
+.ssd-head-actions{display:flex;gap:2px;margin-top:-4px}
+.ssd-head-actions:empty{display:none}
 .ssd-title{margin:0;font-size:1.35em;font-weight:500;line-height:1.25}
 .ssd-sub{margin-top:4px;font-size:.92em;opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ssd-sub:empty{display:none}
@@ -352,7 +362,10 @@
 .ssd-badges{display:flex;gap:4px;flex:none}
 .ssd-badge{padding:1px 7px;border-radius:5px;background:rgba(128,128,128,.25);font-size:.75em;font-weight:700;
   letter-spacing:.03em}
-.ssd-bar{height:6px;margin-top:14px;border-radius:3px;background:rgba(128,128,128,.25);overflow:hidden}
+.ssd-now{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:12px;font-size:.92em}
+.ssd-now-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ssd-now-count{flex:none;opacity:.65;font-variant-numeric:tabular-nums}
+.ssd-bar{height:6px;margin-top:8px;border-radius:3px;background:rgba(128,128,128,.25);overflow:hidden}
 .ssd-bar>div{height:100%;width:0;border-radius:3px;background:var(--ssd-accent);transition:width .25s}
 .ssd-bar.is-muted>div{background:rgba(128,128,128,.6)}
 .ssd-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}
@@ -368,21 +381,33 @@
 .ssd-result{padding:2px 0}
 .ssd-result-reason{opacity:.6}
 .season-subs-btn.ssd-compact .detailButton-icon-text{display:none}
-.ssd-toast{position:fixed;right:20px;bottom:20px;z-index:99999;max-width:380px;padding:12px 16px;border-radius:10px;
+.ssd-pill{position:fixed;right:20px;bottom:20px;z-index:99997;display:flex;align-items:center;gap:2px;
+  width:min(360px,calc(100vw - 40px));padding:0 6px 0 0;box-sizing:border-box;border-radius:12px;background:rgba(24,24,24,.97);
+  color:#fff;border:1px solid rgba(255,255,255,.12);box-shadow:0 6px 24px rgba(0,0,0,.45);overflow:hidden;animation:ssd-pop .18s ease-out}
+.ssd-pill-main{flex:1;min-width:0;display:flex;margin:0;padding:11px 6px 13px 16px;border:0;background:transparent;color:inherit;
+  font:inherit;text-align:left;cursor:pointer}
+.ssd-pill-text{display:flex;flex-direction:column;min-width:0}
+.ssd-pill-title{font-weight:600;font-size:.95em}
+.ssd-pill-sub{font-size:.85em;opacity:.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ssd-pill-bar{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.12)}
+.ssd-pill-bar>div{height:100%;width:0;background:var(--jf-palette-primary-main,#00a4dc);transition:width .25s}
+.ssd-pill:not(.is-running) .ssd-pill-bar{display:none}
+.ssd-toast{position:fixed;right:20px;bottom:20px;z-index:99999;max-width:min(380px,calc(100vw - 40px));padding:12px 16px;border-radius:10px;
   background:rgba(24,24,24,.96);color:#fff;border:1px solid rgba(255,255,255,.1);box-shadow:0 6px 24px rgba(0,0,0,.4);
   font-size:14px;line-height:1.4;animation:ssd-pop .18s ease-out}
 @media (max-width:600px){
   .ssd-overlay{padding:0;align-items:flex-end}
   .ssd-dialog{width:100%;max-height:92%;border-radius:18px 18px 0 0;border-width:1px 0 0}
-  .ssd-head{padding:20px 18px 4px}.ssd-body{padding:4px 18px 10px}
+  .ssd-head{padding:20px 10px 4px 18px}.ssd-body{padding:4px 18px 10px}
   .ssd-foot{padding:12px 18px calc(14px + env(safe-area-inset-bottom,0px))}
   .ssd-stats{grid-template-columns:repeat(2,1fr)}
   .ssd-meter{width:48px}
   .ssd-toast{left:12px;right:12px;top:calc(12px + env(safe-area-inset-top,0px));bottom:auto;max-width:none}
+  .ssd-pill{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:auto}
 }
 @keyframes ssd-fade{from{opacity:0}}
 @keyframes ssd-pop{from{opacity:0;transform:translateY(10px) scale(.985)}}
-@media (prefers-reduced-motion:reduce){.ssd-overlay,.ssd-dialog,.ssd-toast{animation:none}}
+@media (prefers-reduced-motion:reduce){.ssd-overlay,.ssd-dialog,.ssd-toast,.ssd-pill{animation:none}}
 `;
 
     function ensureStyles() {
@@ -394,6 +419,7 @@
     }
 
     const ICON_CLOSE = 'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z';
+    const ICON_HIDE = 'M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z';
 
     function svgIcon(path) {
         const ns = 'http://www.w3.org/2000/svg';
@@ -465,14 +491,40 @@
         box.setAttribute('aria-modal', 'true');
         box.setAttribute('aria-labelledby', titleId);
         const head = el('div', { className: 'ssd-head' });
+        const headText = el('div', { className: 'ssd-head-text' });
         const title = el('h3', { id: titleId, className: 'ssd-title' }, titleText);
         const sub = el('div', { className: 'ssd-sub' }, subText || '');
-        head.append(title, sub);
+        headText.append(title, sub);
+        const headActions = el('div', { className: 'ssd-head-actions' });
+        head.append(headText, headActions);
         const body = el('div', { className: 'ssd-body' });
         const foot = el('div', { className: 'ssd-foot' });
         box.append(head, body, foot);
         overlay.appendChild(box);
-        return { overlay, box, title, sub, body, foot };
+        return { overlay, box, title, sub, body, foot, headActions };
+    }
+
+    function mkIconButton(path, label) {
+        const b = el('button', { type: 'button', className: 'ssd-icon-btn', title: label });
+        b.setAttribute('aria-label', label);
+        b.appendChild(svgIcon(path));
+        return b;
+    }
+
+    const routeWatchers = new Set();
+
+    function watchRoute(fn) {
+        const w = { route: location.hash, fn };
+        routeWatchers.add(w);
+        return () => routeWatchers.delete(w);
+    }
+
+    function checkRoute() {
+        Array.from(routeWatchers).forEach(w => {
+            if (location.hash === w.route) return;
+            w.route = location.hash;
+            try { w.fn(); } catch (e) { console.warn(LOG, 'route change handler failed', e); }
+        });
     }
 
     function mkSection(titleText) {
@@ -574,7 +626,7 @@
 
     function openOptionsDialog({ titleText, scopeText, defaultLang, defaultSkip, defaultVariants, cultures, episodes = [] }) {
         return new Promise(resolve => {
-            const { overlay, box, body, foot } = mkDialog('season-subs-options-title', titleText, scopeText);
+            const { overlay, box, body, foot, headActions } = mkDialog('season-subs-options-title', titleText, scopeText);
             const prevFocus = document.activeElement;
             let selectedLanguages = [defaultLang];
             const names = {};
@@ -611,9 +663,7 @@
                         meter.appendChild(fill);
                         row.appendChild(meter);
                     }
-                    const remove = el('button', { type: 'button', className: 'ssd-icon-btn', title: STR.dlgRemoveLanguage(lang) });
-                    remove.setAttribute('aria-label', STR.dlgRemoveLanguage(lang));
-                    remove.appendChild(svgIcon(ICON_CLOSE));
+                    const remove = mkIconButton(ICON_CLOSE, STR.dlgRemoveLanguage(lang));
                     remove.onclick = () => {
                         selectedLanguages = selectedLanguages.filter(l => l !== lang);
                         renderLanguages();
@@ -744,8 +794,14 @@
             const cancelBtn = mkButton(STR.btnCancel, false);
             const startBtn = mkButton(STR.btnStart, true);
 
+            const closeX = mkIconButton(ICON_CLOSE, STR.btnCancel);
+            closeX.onclick = () => close(null);
+            headActions.appendChild(closeX);
+            const unwatch = watchRoute(() => close(null));
+
             function close(result) {
                 document.removeEventListener('keydown', onKey);
+                unwatch();
                 overlay.remove();
                 if (prevFocus && typeof prevFocus.focus === 'function' && document.contains(prevFocus)) prevFocus.focus();
                 resolve(result);
@@ -771,6 +827,10 @@
                 close({ languages: selectedLanguages.slice(), skipExisting: skipCb.checked, topVariants });
             }
             function onKey(e) {
+                if (!overlay.isConnected) {
+                    document.removeEventListener('keydown', onKey);
+                    return;
+                }
                 trapTab(box, e);
                 if (e.key === 'Escape') { e.preventDefault(); close(null); return; }
                 if (e.key !== 'Enter') return;
@@ -797,9 +857,20 @@
         });
     }
 
-    function openProgressDialog() {
-        const { overlay, box, title, sub: current, body, foot } = mkDialog('season-subs-progress-title', STR.progTitle, '');
-        const prevFocus = document.activeElement;
+    function openProgressDialog(contextText) {
+        const { overlay, box, title, body, foot, headActions } = mkDialog('season-subs-progress-title', STR.progTitle, contextText || '');
+        let prevFocus = document.activeElement;
+        let running = true;
+        let hidden = false;
+        let followUp = false;
+        let lastCounts = { downloaded: 0, skipped: 0, missing: 0, failed: 0 };
+        let pct = 0;
+        let nowText = '';
+
+        const now = el('div', { className: 'ssd-now' });
+        const nowLabel = el('span', { className: 'ssd-now-label' });
+        const nowCount = el('span', { className: 'ssd-now-count' });
+        now.append(nowLabel, nowCount);
 
         const bar = el('div', { className: 'ssd-bar' });
         bar.setAttribute('role', 'progressbar');
@@ -825,13 +896,32 @@
 
         const failBox = el('div', { className: 'ssd-results', style: 'display:none;' });
 
+        const hideBtn = mkIconButton(ICON_HIDE, STR.btnHide);
+        const closeX = mkIconButton(ICON_CLOSE, STR.btnClose);
+        closeX.style.display = 'none';
+        headActions.append(hideBtn, closeX);
+
         const retryBtn = mkButton(STR.btnRetry, true);
         const cancelBtn = mkButton(STR.btnCancel, false);
         const closeBtn = mkButton(STR.btnClose, false);
         retryBtn.style.display = 'none';
         closeBtn.style.display = 'none';
 
-        body.append(bar, stats, failBox);
+        const pill = el('div', { className: 'ssd-pill' });
+        pill.setAttribute('role', 'status');
+        const pillMain = el('button', { type: 'button', className: 'ssd-pill-main', title: STR.pillShow });
+        const pillTitle = el('span', { className: 'ssd-pill-title' });
+        const pillSub = el('span', { className: 'ssd-pill-sub' });
+        const pillText = el('span', { className: 'ssd-pill-text' });
+        pillText.append(pillTitle, pillSub);
+        pillMain.appendChild(pillText);
+        const pillClose = mkIconButton(ICON_CLOSE, STR.pillDismiss);
+        const pillBar = el('div', { className: 'ssd-pill-bar' });
+        const pillBarInner = el('div');
+        pillBar.appendChild(pillBarInner);
+        pill.append(pillMain, pillClose, pillBar);
+
+        body.append(now, bar, stats, failBox);
         foot.append(cancelBtn, closeBtn, retryBtn);
         document.body.appendChild(overlay);
         setTimeout(() => cancelBtn.focus(), 0);
@@ -852,27 +942,89 @@
             });
         };
         closeBtn.onclick = () => close();
+        closeX.onclick = () => close();
+        hideBtn.onclick = () => hide();
+        pillMain.onclick = () => show();
+        pillClose.onclick = () => close();
+        overlay.addEventListener('click', e => {
+            if (e.target !== overlay) return;
+            if (running) hide();
+            else close();
+        });
+        const unwatch = watchRoute(() => {
+            if (running || followUp) hide();
+            else close();
+        });
 
         function onKey(e) {
+            if (!overlay.isConnected) {
+                document.removeEventListener('keydown', onKey);
+                return;
+            }
+            if (hidden) return;
             trapTab(box, e);
             if (e.key !== 'Escape') return;
-            if (cancelBtn.style.display !== 'none' && !cancelBtn.disabled) {
-                cancelBtn.onclick();
-                e.preventDefault();
-            } else if (closeBtn.style.display !== 'none') {
-                close();
-                e.preventDefault();
-            }
+            e.preventDefault();
+            if (running) hide();
+            else close();
         }
         document.addEventListener('keydown', onKey);
 
-        function close() {
-            document.removeEventListener('keydown', onKey);
-            overlay.remove();
+        function restoreFocus() {
             if (prevFocus && typeof prevFocus.focus === 'function' && document.contains(prevFocus)) prevFocus.focus();
         }
 
+        function updatePill() {
+            pillTitle.textContent = title.textContent;
+            pillSub.textContent = running
+                ? [contextText, nowText].filter(Boolean).join(' · ')
+                : [contextText, STR.pillSummary(lastCounts)].filter(Boolean).join(' · ');
+            pillBarInner.style.width = pct + '%';
+            pill.classList.toggle('is-running', running);
+            pillClose.style.display = running ? 'none' : '';
+        }
+
+        function hide() {
+            if (hidden) return;
+            hidden = true;
+            overlay.style.display = 'none';
+            updatePill();
+            document.body.appendChild(pill);
+            restoreFocus();
+        }
+
+        function show() {
+            if (!hidden) return;
+            hidden = false;
+            pill.remove();
+            prevFocus = document.activeElement;
+            overlay.style.display = '';
+            setTimeout(() => {
+                const target = [retryBtn, cancelBtn, closeBtn].find(b => b.style.display !== 'none' && !b.disabled);
+                if (target) target.focus();
+            }, 0);
+        }
+
+        function close() {
+            document.removeEventListener('keydown', onKey);
+            unwatch();
+            overlay.remove();
+            pill.remove();
+            if (!hidden) restoreFocus();
+            if (activeProgress === api) activeProgress = null;
+        }
+
+        function setRunning(value) {
+            running = value;
+            hideBtn.style.display = value ? '' : 'none';
+            closeX.style.display = value ? 'none' : '';
+            cancelBtn.style.display = value ? '' : 'none';
+            closeBtn.style.display = value ? 'none' : '';
+            now.style.display = value ? '' : 'none';
+        }
+
         function setCounts(c) {
+            lastCounts = { ...c };
             sDl.num.textContent = String(c.downloaded);
             sSk.num.textContent = String(c.skipped);
             sMs.num.textContent = String(c.missing);
@@ -880,16 +1032,23 @@
             sDl.tile.classList.toggle('is-ok', c.downloaded > 0);
             sMs.tile.classList.toggle('is-warn', c.missing > 0);
             sFl.tile.classList.toggle('is-bad', c.failed > 0);
+            if (hidden) updatePill();
         }
 
-        function setBar(pct) {
-            barInner.style.width = pct + '%';
-            bar.setAttribute('aria-valuenow', String(pct));
+        function setBar(value) {
+            pct = value;
+            barInner.style.width = value + '%';
+            bar.setAttribute('aria-valuenow', String(value));
         }
 
-        function setProgress(idx, total, label) {
-            setBar(total > 0 ? Math.round((idx / total) * 100) : 0);
-            current.textContent = total > 0 ? (label ? `${label} • ${idx} of ${total}` : `${idx} of ${total}`) : '';
+        function setProgress(done, total, label) {
+            setBar(total > 0 ? Math.round((done / total) * 100) : 0);
+            if (label !== undefined) {
+                nowText = label && total > 0 ? STR.progCount(Math.min(done + 1, total), total) : '';
+                nowLabel.textContent = label || '';
+                nowCount.textContent = nowText;
+            }
+            if (hidden) updatePill();
         }
 
         function renderFailures(failed, missing) {
@@ -909,14 +1068,13 @@
             } else {
                 failBox.style.display = 'none';
             }
+            followUp = failed.length + missing.length > 0;
         }
 
         function finish({ cancelled, hasFailures, retryHandler }) {
             title.textContent = cancelled ? STR.progTitleCancelled : STR.progTitleDone;
-            current.textContent = '';
             bar.classList.toggle('is-muted', !!cancelled);
-            cancelBtn.style.display = 'none';
-            closeBtn.style.display = '';
+            setRunning(false);
             if (hasFailures && retryHandler) {
                 retryBtn.style.display = '';
                 onRetry = retryHandler;
@@ -924,34 +1082,42 @@
                 retryBtn.style.display = 'none';
                 onRetry = null;
             }
+            if (hidden) updatePill();
         }
 
         function fail(message) {
             title.textContent = STR.progTitleError;
-            current.textContent = message || '';
+            failBox.textContent = message || '';
+            failBox.style.display = message ? 'block' : 'none';
             bar.classList.add('is-muted');
-            cancelBtn.style.display = 'none';
+            setRunning(false);
             retryBtn.style.display = 'none';
-            closeBtn.style.display = '';
             onRetry = null;
+            followUp = true;
+            if (hidden) updatePill();
         }
 
         function startRound(roundTitle) {
             title.textContent = roundTitle || STR.progTitle;
-            cancelBtn.style.display = '';
+            setRunning(true);
             cancelBtn.disabled = false;
             cancelBtn.textContent = STR.btnCancel;
-            closeBtn.style.display = 'none';
             retryBtn.style.display = 'none';
             cancelToken.cancelled = false;
             bar.classList.remove('is-muted');
             setBar(0);
-            current.textContent = '';
+            nowLabel.textContent = '';
+            nowCount.textContent = '';
             failBox.style.display = 'none';
             failBox.innerHTML = '';
         }
 
-        return { cancelToken, setCounts, setProgress, renderFailures, finish, fail, close, startRound };
+        const api = {
+            cancelToken, setCounts, setProgress, renderFailures, finish, fail, close, startRound, hide, show,
+            isRunning: () => running,
+            isHidden: () => hidden
+        };
+        return api;
     }
 
     async function downloadAndConfirm(ep, subtitleId, opts, isCancelled) {
@@ -1028,7 +1194,7 @@
                 }
             }
 
-            progress.setProgress(i + 1, episodes.length, label);
+            progress.setProgress(i + 1, episodes.length);
 
             if (opts.requestDelayMs > 0 && i < episodes.length - 1 && !isCancelled()) {
                 await delay(opts.requestDelayMs, isCancelled);
@@ -1072,19 +1238,19 @@
     }
 
     async function startRun({ ctx, opts, episodes }) {
-        const progress = openProgressDialog();
+        if (activeProgress) activeProgress.close();
+        const progress = openProgressDialog(ctx.name);
+        activeProgress = progress;
         let initial = episodes;
         try {
-            const result = await runRound(progress, opts, async () => {
+            return await runRound(progress, opts, async () => {
                 if (initial) { const e = initial; initial = null; return e; }
                 return fetchEpisodes(ctx.seriesId, ctx.seasonId);
             });
-            const verb = result.cancelled ? STR.toastVerbCancelled : STR.toastVerbDone;
-            toast(STR.toastSummary(verb, result.counts), 5000);
         } catch (err) {
             console.error(LOG, 'run failed', err);
             progress.fail(describeErr(err));
-            toast(STR.toastRunFailed, 3000);
+            return null;
         }
     }
 
@@ -1179,6 +1345,10 @@
             e.preventDefault();
             e.stopPropagation();
             if (button.disabled) return;
+            if (activeProgress && activeProgress.isRunning()) {
+                activeProgress.show();
+                return;
+            }
             button.disabled = true;
             icon.textContent = 'hourglass_empty';
             try {
@@ -1219,7 +1389,7 @@
                     maxRetries: typeof config.MaxRetries === 'number' && config.MaxRetries >= 0 ? Math.min(10, config.MaxRetries) : 2,
                     requestDelayMs: typeof config.RequestDelayMs === 'number' && config.RequestDelayMs >= 0 ? Math.min(10000, config.RequestDelayMs) : 0
                 };
-                await startRun({ ctx, opts: fullOpts, episodes: chosen });
+                startRun({ ctx, opts: fullOpts, episodes: chosen });
             } catch (err) {
                 console.error(LOG, 'Run failed to start', err);
                 toast(STR.toastRunFailed, 3000);
@@ -1342,10 +1512,11 @@
         observerStarted = true;
         loadCurrentUser();
         loadConfig();
-        const obs = new MutationObserver(() => handleDetails());
+        const obs = new MutationObserver(() => { checkRoute(); handleDetails(); });
         obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-        setInterval(evaluateDetailsPage, 1000);
-        window.addEventListener('hashchange', () => evaluateDetailsPage());
+        setInterval(() => { checkRoute(); evaluateDetailsPage(); }, 1000);
+        window.addEventListener('hashchange', () => { checkRoute(); evaluateDetailsPage(); });
+        window.addEventListener('popstate', checkRoute);
         window.addEventListener('resize', debounce(fitVisibleButton, 150));
         evaluateDetailsPage();
         console.log(LOG, 'initialized');
@@ -1387,7 +1558,7 @@
             epLabel, distinctSeasonsCount, filterSelectedEpisodes, errStatus, isRetryable, describeErr,
             withRetry, processEpisode, runBatch, runRound, openOptionsDialog,
             openProgressDialog, injectButton, findButtonContainer, ensureStyles, fitButton,
-            toast, themeColors, focusables, trapTab, loadCultures, mkLanguagePicker
+            toast, themeColors, focusables, trapTab, loadCultures, mkLanguagePicker, checkRoute, startRun
         }
     };
 
