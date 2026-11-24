@@ -17,12 +17,11 @@ public static class IndexHtmlPatch
 
     public static string Apply(Payload content)
     {
-        if (string.IsNullOrEmpty(content?.Contents))
+        var html = content?.Contents;
+        if (string.IsNullOrEmpty(html) || !IsHtmlDocument(html))
         {
-            return content?.Contents ?? string.Empty;
+            return html ?? string.Empty;
         }
-
-        var html = content.Contents;
 
         var startIdx = html.IndexOf(OpenMarker, StringComparison.Ordinal);
         var guard = 0;
@@ -61,6 +60,12 @@ public static class IndexHtmlPatch
 
         var snippet = $"{OpenMarker}\n<script>{js}</script>\n{CloseMarker}";
         return html.Insert(bodyClose, snippet);
+    }
+
+    private static bool IsHtmlDocument(string contents)
+    {
+        var start = contents.AsSpan().TrimStart();
+        return start.Length > 0 && start[0] == '<';
     }
 
     private static string LoadEmbeddedJs()

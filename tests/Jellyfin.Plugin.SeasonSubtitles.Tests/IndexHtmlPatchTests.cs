@@ -46,6 +46,20 @@ public class IndexHtmlPatchTests
     }
 
     [Fact]
+    public void Apply_JavaScriptChunk_ReturnsUnchanged()
+    {
+        const string input = "\"use strict\";(self.webpackChunk=self.webpackChunk||[]).push([[1],{1:e=>{e.exports='<div></div></body>'}}]);";
+        Assert.Equal(input, IndexHtmlPatch.Apply(P(input)));
+    }
+
+    [Fact]
+    public void Apply_LeadingWhitespaceBeforeDoctype_StillInjects()
+    {
+        var output = IndexHtmlPatch.Apply(P("\n  <!doctype html><html><body></body></html>"));
+        Assert.Contains("<!-- season-subtitles-inject -->", output);
+    }
+
+    [Fact]
     public void Apply_InjectsExactlyOneMarkerPairAndScript()
     {
         const string input = "<html><body><p>x</p></body></html>";
