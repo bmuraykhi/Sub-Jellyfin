@@ -39,6 +39,28 @@ describe('helpers', () => {
         });
     });
 
+    describe('defaultLanguages', () => {
+        it('uses every valid configured default language once, in order', () => {
+            const I = loadSeasonSubs()._internals;
+            expect(I.defaultLanguages({ DefaultLanguages: ['eng', 'SPA', 'xx', 'eng'] }, null)).toEqual(['eng', 'spa']);
+        });
+
+        it('falls back to the single default language when none are configured', () => {
+            const I = loadSeasonSubs()._internals;
+            expect(I.defaultLanguages({ DefaultLanguages: [], DefaultLanguage: 'fra' }, null)).toEqual(['fra']);
+            expect(I.defaultLanguages({}, { Configuration: { SubtitleLanguagePreference: 'ara' } })).toEqual(['ara']);
+        });
+
+        it('opens the dialog with all of them added', async () => {
+            const I = loadSeasonSubs()._internals;
+            const p = I.openOptionsDialog({ titleText: 't', scopeText: 's', defaultLangs: ['eng', 'spa'], defaultSkip: true, defaultVariants: 1 });
+            expect(document.querySelectorAll('[aria-label^="Remove "]').length).toBe(2);
+            Array.from(document.querySelectorAll('button')).find(b => b.textContent === I.STR.btnStart).click();
+            expect((await p).languages).toEqual(['eng', 'spa']);
+            document.body.innerHTML = '';
+        });
+    });
+
     describe('alreadyHasSubtitle', () => {
         it('is true when a matching subtitle stream exists, case-insensitively', () => {
             const episode = { MediaStreams: [{ Type: 'Subtitle', Language: 'ENG' }] };

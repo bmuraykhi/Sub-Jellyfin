@@ -187,6 +187,13 @@
         return 'eng';
     }
 
+    function defaultLanguages(config, user) {
+        const list = (config && Array.isArray(config.DefaultLanguages) ? config.DefaultLanguages : [])
+            .map(c => String(c || '').trim().toLowerCase())
+            .filter(c => /^[a-z]{3}$/.test(c));
+        return list.length > 0 ? Array.from(new Set(list)) : [defaultLanguage(config, user)];
+    }
+
     function alreadyHasSubtitle(episode, threeLetterLang) {
         const lang = (threeLetterLang || '').toLowerCase();
         if (!lang) return false;
@@ -777,11 +784,13 @@
         return input;
     }
 
-    function openOptionsDialog({ titleText, scopeText, defaultLang, defaultSkip, defaultVariants, cultures, episodes = [] }) {
+    function openOptionsDialog({ titleText, scopeText, defaultLang, defaultLangs, defaultSkip, defaultVariants, cultures, episodes = [] }) {
         return new Promise(resolve => {
             const { overlay, box, body, foot, headActions } = mkDialog('season-subs-options-title', titleText, scopeText);
             const prevFocus = document.activeElement;
-            let selectedLanguages = [defaultLang];
+            let selectedLanguages = Array.isArray(defaultLangs) && defaultLangs.length > 0
+                ? defaultLangs.slice()
+                : (defaultLang ? [defaultLang] : []);
             const names = {};
             (cultures || []).forEach(c => { names[c.code] = primaryName(c.label); });
             const langName = code => names[code] || code;
@@ -1547,7 +1556,7 @@
                 const opts = await openOptionsDialog({
                     titleText,
                     scopeText,
-                    defaultLang: defaultLanguage(config, user),
+                    defaultLangs: defaultLanguages(config, user),
                     defaultSkip: config.SkipExistingByDefault !== false,
                     defaultVariants: typeof config.TopVariants === 'number' && config.TopVariants >= 1 ? config.TopVariants : 1,
                     cultures,
@@ -1728,7 +1737,7 @@
         },
         forceInject() { evaluateDetailsPage(); return 'queued'; },
         _internals: {
-            STR, debounce, delay, escHtml, defaultLanguage, alreadyHasSubtitle,
+            STR, debounce, delay, escHtml, defaultLanguage, defaultLanguages, alreadyHasSubtitle,
             epLabel, distinctSeasonsCount, filterSelectedEpisodes, errStatus, isRetryable, describeErr,
             withRetry, processEpisode, runBatch, runRound, openOptionsDialog,
             openProgressDialog, injectButton, findButtonContainer, ensureStyles, fitButton,

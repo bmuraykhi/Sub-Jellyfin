@@ -7,7 +7,29 @@
 <div id="SeasonSubtitleDownloaderConfigPage"
      data-role="page"
      class="page type-interior pluginConfigurationPage"
-     data-require="emby-input,emby-button,emby-checkbox,emby-select">
+     data-require="emby-input,emby-button,emby-checkbox">
+
+    <style>
+        #SeasonSubtitleDownloaderConfigPage .ssdc-status { margin: 1.5em 0 2em; padding: 0.4em 1.2em; border-radius: 10px; background: rgba(128, 128, 128, 0.12); }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-check { display: flex; gap: 0.8em; align-items: flex-start; padding: 0.7em 0; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-check + .ssdc-check { border-top: 1px solid rgba(128, 128, 128, 0.2); }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-icon { flex: none; font-size: 1.3em; line-height: 1.2; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-ok .ssdc-icon { color: #4caf50; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-bad .ssdc-icon { color: #ef5350; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-wait .ssdc-icon { opacity: 0.5; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-check-title { font-weight: 600; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-check-text { opacity: 0.8; font-size: 0.92em; margin-top: 0.15em; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-check-text code { user-select: all; word-break: break-all; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-chips { display: flex; flex-wrap: wrap; gap: 0.5em; margin: 0.4em 0 0.8em; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-chips:empty { display: none; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-chip { display: inline-flex; align-items: center; gap: 0.2em; padding: 0.25em 0.3em 0.25em 0.9em; border-radius: 999px; background: rgba(128, 128, 128, 0.22); }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-chip button { display: inline-flex; align-items: center; justify-content: center; width: 1.8em; height: 1.8em; margin: 0; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; font-size: 1em; opacity: 0.7; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-chip button:hover { opacity: 1; background: rgba(128, 128, 128, 0.3); }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-add { display: flex; gap: 0.6em; align-items: flex-end; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-add .inputContainer { flex: 1; margin-bottom: 0; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-add .emby-button { margin: 0; }
+        #SeasonSubtitleDownloaderConfigPage .ssdc-error { color: #ef5350; margin-top: 0.4em; }
+    </style>
 
     <div data-role="content">
         <div class="content-primary">
@@ -15,76 +37,71 @@
             <form class="seasonSubsConfigForm">
                 <h1 style="margin-bottom: 0.25em;">Season Subtitle Downloader</h1>
                 <p class="fieldDescription" style="margin-top: 0;">
-                    Defaults applied when you click the <em>Download Subs</em> button.
-                    File Transformation must also be installed for the button to appear.
+                    What the <em>Download Subs</em> dialog starts with, for everyone on this server.
+                    People can still change it each time they download.
                 </p>
 
-                <div class="inputContainer">
-                    <label class="inputLabel inputLabelUnfocused" for="DefaultLanguage">
-                        Default subtitle language (3-letter ISO)
-                    </label>
-                    <input is="emby-input"
-                           id="DefaultLanguage"
-                           type="text"
-                           maxlength="3"
-                           autocomplete="off"
-                           placeholder="eng"
-                           pattern="[A-Za-z]{3}" />
-                    <select is="emby-select" id="DefaultLanguageSelect" style="display:none;"></select>
-                    <div class="fieldDescription">
-                        Leave blank to fall back to the current user's Jellyfin subtitle preference, then to <code>eng</code>.
+                <div class="ssdc-status" aria-live="polite">
+                    <div class="ssdc-check ssdc-wait" id="ssdcFileTransformation">
+                        <span class="ssdc-icon material-icons" aria-hidden="true">hourglass_empty</span>
+                        <div>
+                            <div class="ssdc-check-title">File Transformation</div>
+                            <div class="ssdc-check-text">Checking…</div>
+                        </div>
                     </div>
+                    <div class="ssdc-check ssdc-wait" id="ssdcProviders">
+                        <span class="ssdc-icon material-icons" aria-hidden="true">hourglass_empty</span>
+                        <div>
+                            <div class="ssdc-check-title">Subtitle providers</div>
+                            <div class="ssdc-check-text">Checking…</div>
+                        </div>
+                    </div>
+                </div>
+
+                <h2>Default languages</h2>
+                <div class="ssdc-chips" id="ssdcLanguages"></div>
+                <div class="ssdc-add">
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="ssdcLanguageInput">Add a language</label>
+                        <input is="emby-input" id="ssdcLanguageInput" type="text" autocomplete="off" list="ssdcLanguageList" placeholder="Type to search, e.g. English" />
+                        <datalist id="ssdcLanguageList"></datalist>
+                    </div>
+                    <button is="emby-button" type="button" class="raised emby-button" id="ssdcAddLanguage"><span>Add</span></button>
+                </div>
+                <div class="ssdc-error" id="ssdcLanguageError" hidden></div>
+                <div class="fieldDescription" style="margin-bottom: 2em;">
+                    With none set, the dialog starts with each person's own subtitle language from their Jellyfin settings, or English.
                 </div>
 
                 <div class="checkboxContainer">
                     <label>
                         <input is="emby-checkbox" type="checkbox" id="SkipExistingByDefault" />
-                        <span>Skip episodes that already have a subtitle in the chosen language</span>
+                        <span>Skip episodes that already have subtitles in that language</span>
                     </label>
                 </div>
 
                 <div class="inputContainer">
-                    <label class="inputLabel inputLabelUnfocused" for="MaxRetries">
-                        Retry attempts per episode on transient failures
-                    </label>
-                    <input is="emby-input"
-                           id="MaxRetries"
-                           type="number"
-                           min="0"
-                           max="10"
-                           step="1" />
+                    <label class="inputLabel inputLabelUnfocused" for="TopVariants">Matches to download per episode</label>
+                    <input is="emby-input" id="TopVariants" type="number" min="1" max="5" step="1" />
                     <div class="fieldDescription">
-                        How many extra attempts to make for an episode when the provider returns a network error or 5xx / 429. Default <code>2</code>. Set to <code>0</code> to disable retries.
+                        1 to 5. Extra matches help when the best one is out of sync: pick another in the player's subtitle menu.
+                        Each one counts toward your subtitle provider's daily limit.
                     </div>
                 </div>
 
                 <div class="inputContainer">
-                    <label class="inputLabel inputLabelUnfocused" for="RequestDelayMs">
-                        Delay between episodes (ms)
-                    </label>
-                    <input is="emby-input"
-                           id="RequestDelayMs"
-                           type="number"
-                           min="0"
-                           max="10000"
-                           step="50" />
+                    <label class="inputLabel inputLabelUnfocused" for="MaxRetries">Retries when a download fails</label>
+                    <input is="emby-input" id="MaxRetries" type="number" min="0" max="10" step="1" />
                     <div class="fieldDescription">
-                        Pause inserted between episode fetches. Useful if your provider rate-limits aggressively. Default <code>0</code>.
+                        Tries again after a short wait when the server or the subtitle provider is busy or can't be reached. 0 turns it off.
                     </div>
                 </div>
 
                 <div class="inputContainer">
-                    <label class="inputLabel inputLabelUnfocused" for="TopVariants">
-                        Variants downloaded per episode
-                    </label>
-                    <input is="emby-input"
-                           id="TopVariants"
-                           type="number"
-                           min="1"
-                           max="5"
-                           step="1" />
+                    <label class="inputLabel inputLabelUnfocused" for="RequestDelaySeconds">Pause between episodes (seconds)</label>
+                    <input is="emby-input" id="RequestDelaySeconds" type="number" min="0" max="10" step="0.5" />
                     <div class="fieldDescription">
-                        How many of the top-ranked subtitles to pull per episode. Default <code>1</code>. Set to <code>3</code>-<code>5</code> if the highest-ranked match often doesn't sync — you'll get extra candidates to choose from in the player. Multiplies provider calls accordingly.
+                        Slows a run down for subtitle providers that limit how fast you can download. 0 means no pause.
                     </div>
                 </div>
 
@@ -102,20 +119,135 @@
     <script type="text/javascript">
         (function () {
             var pluginUniqueId = 'a3c0e5c3-7d0d-4b91-9d1c-2e6f9b3a1c5d';
+            var fileTransformationCatalog = 'https://www.iamparadox.dev/jellyfin/plugins/manifest.json';
             var busy = false;
+            var languages = [];
+            var cultures = [];
 
             function getPage() {
                 return document.querySelector('#SeasonSubtitleDownloaderConfigPage');
             }
 
-            function setSubmitDisabled(page, disabled) {
-                var btn = page.querySelector('button[type=submit]');
-                if (btn) btn.disabled = disabled;
+            function esc(s) {
+                return String(s).replace(/[&<>"']/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                });
+            }
+
+            function primaryName(label) {
+                return String(label || '').split(';')[0].trim();
+            }
+
+            function nameOf(code) {
+                for (var i = 0; i < cultures.length; i++) {
+                    if (cultures[i].code === code) return cultures[i].name;
+                }
+                return code;
+            }
+
+            function setCheck(page, id, state, html) {
+                var row = page.querySelector('#' + id);
+                row.className = 'ssdc-check ssdc-' + state;
+                row.querySelector('.ssdc-icon').textContent = state === 'ok' ? 'check_circle' : (state === 'bad' ? 'error' : 'help');
+                row.querySelector('.ssdc-check-text').innerHTML = html;
+            }
+
+            function checkSetup(page) {
+                var plugins = typeof ApiClient.getInstalledPlugins === 'function'
+                    ? ApiClient.getInstalledPlugins()
+                    : ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Plugins'), dataType: 'json' });
+                plugins.then(function (list) {
+                    var ft = (Array.isArray(list) ? list : []).filter(function (p) {
+                        return p && /file\s*transformation/i.test(p.Name || '');
+                    })[0];
+                    if (!ft) {
+                        setCheck(page, 'ssdcFileTransformation', 'bad',
+                            'Not installed, so the <em>Download Subs</em> button can\'t appear. Add this catalog under Plugins → Manage Repositories, install File Transformation, then restart Jellyfin: <code>' + esc(fileTransformationCatalog) + '</code>');
+                    } else if (ft.Status && ft.Status !== 'Active') {
+                        setCheck(page, 'ssdcFileTransformation', 'bad',
+                            'Installed but ' + esc(String(ft.Status).toLowerCase()) + '. Restart Jellyfin, or enable it under Plugins.');
+                    } else {
+                        setCheck(page, 'ssdcFileTransformation', 'ok',
+                            'Installed. After installing or updating this plugin, hard-refresh the browser (Ctrl/Cmd+Shift+R) to see the button.');
+                    }
+                }).catch(function () {
+                    setCheck(page, 'ssdcFileTransformation', 'wait', 'Couldn\'t check the installed plugins.');
+                });
+
+                ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Libraries/AvailableOptions'), dataType: 'json' }).then(function (opts) {
+                    var names = ((opts && opts.SubtitleFetchers) || []).map(function (f) { return f && f.Name; }).filter(Boolean);
+                    if (names.length === 0) {
+                        setCheck(page, 'ssdcProviders', 'bad',
+                            'None installed, so every search comes back empty. Install one from the plugin catalog, such as OpenSubtitles, and sign in to it in its settings.');
+                    } else {
+                        setCheck(page, 'ssdcProviders', 'ok',
+                            esc(names.join(', ')) + '. If downloads fail, check the provider\'s login and daily limit.');
+                    }
+                }).catch(function () {
+                    setCheck(page, 'ssdcProviders', 'wait', 'Couldn\'t check the subtitle providers.');
+                });
+            }
+
+            function renderLanguages(page) {
+                var box = page.querySelector('#ssdcLanguages');
+                box.innerHTML = '';
+                languages.forEach(function (code) {
+                    var chip = document.createElement('span');
+                    chip.className = 'ssdc-chip';
+                    var label = document.createElement('span');
+                    label.textContent = nameOf(code);
+                    label.title = code;
+                    var remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.setAttribute('aria-label', 'Remove ' + nameOf(code));
+                    remove.title = 'Remove';
+                    remove.innerHTML = '<span class="material-icons" aria-hidden="true" style="font-size:1.1em;">close</span>';
+                    remove.addEventListener('click', function () {
+                        languages = languages.filter(function (c) { return c !== code; });
+                        renderLanguages(page);
+                    });
+                    chip.appendChild(label);
+                    chip.appendChild(remove);
+                    box.appendChild(chip);
+                });
+            }
+
+            function resolveLanguage(text) {
+                var t = String(text || '').trim();
+                if (!t) return null;
+                var m = /\(([a-z]{3})\)\s*$/i.exec(t);
+                var lower = (m ? m[1] : t).toLowerCase();
+                var i;
+                for (i = 0; i < cultures.length; i++) {
+                    if (cultures[i].code === lower) return lower;
+                }
+                for (i = 0; i < cultures.length; i++) {
+                    if (cultures[i].name.toLowerCase() === lower) return cultures[i].code;
+                }
+                if (cultures.length === 0 && /^[a-z]{3}$/.test(lower)) return lower;
+                return null;
+            }
+
+            function addTypedLanguage(page) {
+                var input = page.querySelector('#ssdcLanguageInput');
+                var error = page.querySelector('#ssdcLanguageError');
+                var code = resolveLanguage(input.value);
+                if (!code) {
+                    error.textContent = input.value.trim()
+                        ? 'Pick a language from the list, or type its 3-letter code.'
+                        : 'Type a language first.';
+                    error.hidden = false;
+                    input.focus();
+                    return;
+                }
+                error.hidden = true;
+                if (languages.indexOf(code) === -1) languages.push(code);
+                input.value = '';
+                renderLanguages(page);
+                input.focus();
             }
 
             function loadCultures(page) {
-                var select = page.querySelector('#DefaultLanguageSelect');
-                var input = page.querySelector('#DefaultLanguage');
                 var req;
                 try {
                     req = typeof ApiClient.getCultures === 'function'
@@ -125,43 +257,27 @@
                     return;
                 }
                 req.then(function (list) {
-                    if (!Array.isArray(list) || list.length === 0) return;
                     var seen = {};
-                    var options = [];
-                    list.forEach(function (c) {
+                    var out = [];
+                    (Array.isArray(list) ? list : []).forEach(function (c) {
                         if (!c) return;
                         var raw = c.ThreeLetterISOLanguageName ||
                             (Array.isArray(c.ThreeLetterISOLanguageNames) && c.ThreeLetterISOLanguageNames[0]) || '';
                         var code = String(raw).toLowerCase();
                         if (!/^[a-z]{3}$/.test(code) || seen[code]) return;
                         seen[code] = true;
-                        options.push({ code: code, label: c.DisplayName || c.Name || code });
+                        out.push({ code: code, name: primaryName(c.DisplayName || c.Name || code) });
                     });
-                    if (options.length === 0) return;
-                    options.sort(function (a, b) { return a.label.localeCompare(b.label); });
-                    select.innerHTML = '';
-                    var blank = document.createElement('option');
-                    blank.value = '';
-                    blank.textContent = "Use each user's preference";
-                    select.appendChild(blank);
-                    var current = input.value;
-                    var hasCurrent = current === '';
-                    options.forEach(function (o) {
+                    out.sort(function (a, b) { return a.name.localeCompare(b.name); });
+                    cultures = out;
+                    var datalist = page.querySelector('#ssdcLanguageList');
+                    datalist.innerHTML = '';
+                    out.forEach(function (c) {
                         var opt = document.createElement('option');
-                        opt.value = o.code;
-                        opt.textContent = o.label + ' (' + o.code + ')';
-                        if (o.code === current) hasCurrent = true;
-                        select.appendChild(opt);
+                        opt.value = c.name + ' (' + c.code + ')';
+                        datalist.appendChild(opt);
                     });
-                    if (current && !hasCurrent) {
-                        var extra = document.createElement('option');
-                        extra.value = current;
-                        extra.textContent = current;
-                        select.appendChild(extra);
-                    }
-                    select.value = current;
-                    select.style.display = '';
-                    input.style.display = 'none';
+                    renderLanguages(page);
                 }).catch(function () {});
             }
 
@@ -170,12 +286,14 @@
                 busy = true;
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
-                    page.querySelector('#DefaultLanguage').value = (config.DefaultLanguage || '').toLowerCase();
-                    loadCultures(page);
-                    page.querySelector('#SkipExistingByDefault').checked = !!config.SkipExistingByDefault;
-                    page.querySelector('#MaxRetries').value = (config.MaxRetries != null ? config.MaxRetries : 2);
-                    page.querySelector('#RequestDelayMs').value = (config.RequestDelayMs != null ? config.RequestDelayMs : 0);
-                    page.querySelector('#TopVariants').value = (config.TopVariants != null && config.TopVariants >= 1 ? config.TopVariants : 1);
+                    var list = Array.isArray(config.DefaultLanguages) ? config.DefaultLanguages.slice() : [];
+                    if (list.length === 0 && config.DefaultLanguage) list = [String(config.DefaultLanguage).toLowerCase()];
+                    languages = list;
+                    renderLanguages(page);
+                    page.querySelector('#SkipExistingByDefault').checked = config.SkipExistingByDefault !== false;
+                    page.querySelector('#MaxRetries').value = config.MaxRetries != null ? config.MaxRetries : 2;
+                    page.querySelector('#RequestDelaySeconds').value = (config.RequestDelayMs != null ? config.RequestDelayMs : 0) / 1000;
+                    page.querySelector('#TopVariants').value = config.TopVariants != null && config.TopVariants >= 1 ? config.TopVariants : 1;
                 }).catch(function () {
                     Dashboard.alert('Failed to load Season Subtitle Downloader settings.');
                 }).then(function () {
@@ -186,31 +304,27 @@
 
             function save(page) {
                 if (busy) return;
+                var pending = page.querySelector('#ssdcLanguageInput').value.trim();
+                if (pending) {
+                    var code = resolveLanguage(pending);
+                    if (code && languages.indexOf(code) === -1) languages.push(code);
+                    page.querySelector('#ssdcLanguageInput').value = '';
+                    renderLanguages(page);
+                }
                 busy = true;
                 Dashboard.showLoadingMsg();
-                setSubmitDisabled(page, true);
+                var submit = page.querySelector('button[type=submit]');
+                submit.disabled = true;
                 ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
-                    var select = page.querySelector('#DefaultLanguageSelect');
-                    var usingSelect = select && select.style.display !== 'none';
-                    var lang;
-                    if (usingSelect) {
-                        lang = select.value;
-                    } else {
-                        lang = (page.querySelector('#DefaultLanguage').value || '').trim().toLowerCase();
-                        if (lang && !/^[a-z]{3}$/.test(lang)) {
-                            Dashboard.alert('Default language must be a 3-letter ISO code (e.g. eng) or blank.');
-                            return null;
-                        }
-                    }
-                    config.DefaultLanguage = lang;
+                    config.DefaultLanguages = languages.slice();
+                    config.DefaultLanguage = '';
                     config.SkipExistingByDefault = page.querySelector('#SkipExistingByDefault').checked;
                     var retries = parseInt(page.querySelector('#MaxRetries').value, 10);
                     config.MaxRetries = isFinite(retries) ? Math.min(10, Math.max(0, retries)) : 2;
-                    var delay = parseInt(page.querySelector('#RequestDelayMs').value, 10);
-                    config.RequestDelayMs = isFinite(delay) ? Math.min(10000, Math.max(0, delay)) : 0;
+                    var seconds = parseFloat(page.querySelector('#RequestDelaySeconds').value);
+                    config.RequestDelayMs = isFinite(seconds) ? Math.min(10000, Math.max(0, Math.round(seconds * 1000))) : 0;
                     var variants = parseInt(page.querySelector('#TopVariants').value, 10);
                     config.TopVariants = isFinite(variants) ? Math.min(5, Math.max(1, variants)) : 1;
-
                     return ApiClient.updatePluginConfiguration(pluginUniqueId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);
                         busy = false;
@@ -220,19 +334,33 @@
                     Dashboard.alert('Failed to save settings.');
                 }).then(function () {
                     busy = false;
-                    setSubmitDisabled(page, false);
+                    submit.disabled = false;
                     Dashboard.hideLoadingMsg();
                 });
             }
 
             var page = getPage();
-            page.addEventListener('pageshow', function () { load(page); });
+            page.addEventListener('pageshow', function () {
+                load(page);
+                checkSetup(page);
+            });
+            page.querySelector('#ssdcAddLanguage').addEventListener('click', function () { addTypedLanguage(page); });
+            page.querySelector('#ssdcLanguageInput').addEventListener('keydown', function (e) {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                addTypedLanguage(page);
+            });
+            page.querySelector('#ssdcLanguageInput').addEventListener('input', function () {
+                page.querySelector('#ssdcLanguageError').hidden = true;
+            });
             page.querySelector('.seasonSubsConfigForm').addEventListener('submit', function (e) {
                 e.preventDefault();
                 save(page);
                 return false;
             });
+            loadCultures(page);
             load(page);
+            checkSetup(page);
         })();
     </script>
 </div>

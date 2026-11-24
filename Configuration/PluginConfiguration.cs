@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text.RegularExpressions;
 using MediaBrowser.Model.Plugins;
 
@@ -7,6 +8,7 @@ namespace Jellyfin.Plugin.SeasonSubtitles.Configuration;
 public class PluginConfiguration : BasePluginConfiguration
 {
     private string _defaultLanguage = string.Empty;
+    private string[] _defaultLanguages = Array.Empty<string>();
     private int _maxRetries = 2;
     private int _requestDelayMs;
     private int _topVariants = 1;
@@ -19,6 +21,17 @@ public class PluginConfiguration : BasePluginConfiguration
             var v = (value ?? string.Empty).Trim().ToLowerInvariant();
             _defaultLanguage = Regex.IsMatch(v, "^[a-z]{3}$") ? v : string.Empty;
         }
+    }
+
+    public string[] DefaultLanguages
+    {
+        get => _defaultLanguages;
+        set => _defaultLanguages = (value ?? Array.Empty<string>())
+            .Select(v => (v ?? string.Empty).Trim().ToLowerInvariant())
+            .Where(v => Regex.IsMatch(v, "^[a-z]{3}$"))
+            .Distinct()
+            .Take(10)
+            .ToArray();
     }
 
     public bool SkipExistingByDefault { get; set; } = true;

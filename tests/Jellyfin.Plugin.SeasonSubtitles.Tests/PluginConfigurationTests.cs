@@ -12,6 +12,7 @@ public class PluginConfigurationTests
         var config = new PluginConfiguration();
 
         Assert.Equal(string.Empty, config.DefaultLanguage);
+        Assert.Empty(config.DefaultLanguages);
         Assert.True(config.SkipExistingByDefault);
         Assert.Equal(2, config.MaxRetries);
         Assert.Equal(0, config.RequestDelayMs);
@@ -82,11 +83,34 @@ public class PluginConfigurationTests
     }
 
     [Fact]
+    public void DefaultLanguages_KeepsValidCodesOnceInOrder()
+    {
+        var config = new PluginConfiguration { DefaultLanguages = new[] { " ENG ", "spa", "en", null!, "eng", "ara" } };
+        Assert.Equal(new[] { "eng", "spa", "ara" }, config.DefaultLanguages);
+    }
+
+    [Fact]
+    public void DefaultLanguages_TreatsNullAsEmpty()
+    {
+        var config = new PluginConfiguration { DefaultLanguages = null! };
+        Assert.Empty(config.DefaultLanguages);
+    }
+
+    [Fact]
+    public void DefaultLanguages_KeepsAtMostTen()
+    {
+        var codes = Enumerable.Range(0, 12).Select(i => "a" + (char)('a' + i) + "c").ToArray();
+        var config = new PluginConfiguration { DefaultLanguages = codes };
+        Assert.Equal(codes.Take(10), config.DefaultLanguages);
+    }
+
+    [Fact]
     public void XmlSerializer_RoundTripsClampedValues()
     {
         var original = new PluginConfiguration
         {
             DefaultLanguage = "fra",
+            DefaultLanguages = new[] { "fra", "deu" },
             SkipExistingByDefault = false,
             MaxRetries = 7,
             RequestDelayMs = 500,
@@ -100,6 +124,7 @@ public class PluginConfigurationTests
         var roundTripped = (PluginConfiguration)serializer.Deserialize(stream)!;
 
         Assert.Equal(original.DefaultLanguage, roundTripped.DefaultLanguage);
+        Assert.Equal(original.DefaultLanguages, roundTripped.DefaultLanguages);
         Assert.Equal(original.SkipExistingByDefault, roundTripped.SkipExistingByDefault);
         Assert.Equal(original.MaxRetries, roundTripped.MaxRetries);
         Assert.Equal(original.RequestDelayMs, roundTripped.RequestDelayMs);
