@@ -75,8 +75,11 @@
             `${verb} — ${c.downloaded} downloaded · ${c.skipped} skipped · ${c.missing} no match · ${c.failed} failed`,
         toastVerbDone: 'Done',
         toastVerbCancelled: 'Cancelled',
-        toastRunFailed: 'Could not start subtitle run'
+        toastRunFailed: 'Could not start subtitle run',
+        errNotDelivered: 'the subtitle never showed up on the episode, so the provider probably failed (check its login and daily limit)'
     };
+
+    const VERIFY_TIMEOUT_MS = 6000;
 
     let lastEvaluated = { itemId: null, applicable: false, ctx: null };
     let observerStarted = false;
@@ -225,6 +228,33 @@
             `/Items/${encodeURIComponent(itemId)}/RemoteSearch/Subtitles/${encodeURIComponent(subtitleId)}`
         );
         return ApiClient.ajax({ type: 'POST', url });
+    }
+
+    function subtitleStreamCount(item) {
+        return ((item && item.MediaStreams) || []).filter(s => s && s.Type === 'Subtitle').length;
+    }
+
+    async function fetchSubtitleCount(itemId) {
+        return subtitleStreamCount(await ApiClient.getItem(ApiClient.getCurrentUserId(), itemId));
+    }
+
+    async function waitForSubtitleCount(itemId, atLeast, timeoutMs, isCancelled) {
+        const started = Date.now();
+        let wait = 150;
+        while (true) {
+            if ((await fetchSubtitleCount(itemId)) >= atLeast) return true;
+            if (isCancelled && isCancelled()) throw new Error('cancelled');
+            const left = timeoutMs - (Date.now() - started);
+            if (left <= 0) return false;
+            await delay(Math.min(wait, left), isCancelled);
+            wait = Math.min(1000, wait * 2);
+        }
+    }
+
+    function notDeliveredError() {
+        const e = new Error(STR.errNotDelivered);
+        e.notDelivered = true;
+        return e;
     }
 
     function errStatus(err) {
@@ -923,6 +953,13 @@
         return { cancelToken, setCounts, setProgress, renderFailures, finish, fail, close, startRound };
     }
 
+    async function downloadAndConfirm(ep, subtitleId, opts, isCancelled) {
+        const before = await fetchSubtitleCount(ep.Id);
+        await downloadSubtitle(ep.Id, subtitleId);
+        const timeout = opts.verifyTimeoutMs != null ? opts.verifyTimeoutMs : VERIFY_TIMEOUT_MS;
+        if (!(await waitForSubtitleCount(ep.Id, before + 1, timeout, isCancelled))) throw notDeliveredError();
+    }
+
     async function processEpisode(ep, lang, opts, isCancelled) {
         const search = await withRetry(() => searchSubtitles(ep.Id, lang), opts.maxRetries, 500, isCancelled);
         const results = Array.isArray(search) ? search.filter(r => r && r.Id) : [];
@@ -933,7 +970,7 @@
         for (const r of wanted) {
             if (isCancelled()) throw new Error('cancelled');
             try {
-                await withRetry(() => downloadSubtitle(ep.Id, r.Id), opts.maxRetries, 500, isCancelled);
+                await withRetry(() => downloadAndConfirm(ep, r.Id, opts, isCancelled), opts.maxRetries, 500, isCancelled);
                 downloaded++;
             } catch (e) {
                 if (e && e.message === 'cancelled') throw e;

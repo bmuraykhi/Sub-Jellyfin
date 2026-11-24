@@ -9,8 +9,9 @@ function ep(id, num, name, streams) {
     return { Id: id, ParentIndexNumber: 1, IndexNumber: num, Name: name, MediaStreams: streams || [] };
 }
 
-function makeAjaxStub({ search, download }) {
+function makeAjaxStub({ search, download, deliver = () => true }) {
     const calls = [];
+    const subtitleCounts = {};
     function parse(url) {
         const m = url.match(/\/Items\/([^/]+)\/RemoteSearch\/Subtitles\/([^/]+)$/);
         return { episodeId: decodeURIComponent(m[1]), tail: decodeURIComponent(m[2]) };
@@ -24,7 +25,15 @@ function makeAjaxStub({ search, download }) {
                 return Promise.resolve().then(() => search(episodeId, tail));
             }
             calls.push({ type: 'download', episodeId, subtitleId: tail });
-            return Promise.resolve().then(() => download(episodeId, tail));
+            return Promise.resolve().then(() => {
+                const r = download(episodeId, tail);
+                if (deliver(episodeId, tail)) subtitleCounts[episodeId] = (subtitleCounts[episodeId] || 0) + 1;
+                return r;
+            });
+        },
+        getItem(_userId, id) {
+            const n = subtitleCounts[id] || 0;
+            return Promise.resolve({ Id: id, MediaStreams: Array.from({ length: n }, () => ({ Type: 'Subtitle' })) });
         }
     };
 }
@@ -51,7 +60,7 @@ describe('multi-language batch runner', () => {
 
     it('downloads every (episode, language) pair when all succeed', async () => {
         const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}) });
-        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax }));
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
         const I = subs._internals;
         const progress = makeProgress();
         const episodes = [ep('e1', 1, 'A'), ep('e2', 2, 'B')];
@@ -67,7 +76,7 @@ describe('multi-language batch runner', () => {
 
     it('skips a language the episode already has and still downloads the missing one', async () => {
         const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}) });
-        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax }));
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
         const I = subs._internals;
         const progress = makeProgress();
         const episodes = [ep('e1', 1, 'A', [{ Type: 'Subtitle', Language: 'eng' }])];
@@ -90,7 +99,7 @@ describe('multi-language batch runner', () => {
             },
             download: () => ({})
         });
-        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax }));
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
         const I = subs._internals;
         const progress = makeProgress();
         const episodes = [ep('e1', 1, 'A')];
@@ -105,9 +114,58 @@ describe('multi-language batch runner', () => {
         ]);
     });
 
+    it('fails a download that Jellyfin accepts but never adds to the episode, after retrying it', async () => {
+        const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}), deliver: () => false });
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
+        const I = subs._internals;
+        const progress = makeProgress();
+        const opts = { languages: ['eng'], skipExisting: false, topVariants: 1, maxRetries: 1, requestDelayMs: 0, verifyTimeoutMs: 20 };
+
+        const result = await I.runBatch(progress, [ep('e1', 1, 'A')], opts);
+
+        expect(result.counts).toEqual({ downloaded: 0, skipped: 0, missing: 0, failed: 1 });
+        expect(result.failed[0].reason).toBe(I.STR.errNotDelivered);
+        expect(stub.calls.filter(c => c.type === 'download')).toHaveLength(2);
+    });
+
+    it('counts a download once the subtitle shows up on the episode a moment later', async () => {
+        const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}), deliver: () => false });
+        let lookups = 0;
+        const getItem = (_u, id) => Promise.resolve({
+            Id: id,
+            MediaStreams: ++lookups >= 4 ? [{ Type: 'Subtitle' }] : []
+        });
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem }));
+        const I = subs._internals;
+        const progress = makeProgress();
+        const opts = { languages: ['eng'], skipExisting: false, topVariants: 1, maxRetries: 0, requestDelayMs: 0 };
+
+        const result = await I.runBatch(progress, [ep('e1', 1, 'A')], opts);
+
+        expect(result.counts.downloaded).toBe(1);
+        expect(lookups).toBe(4);
+    });
+
+    it('needs one new subtitle per variant', async () => {
+        const stub = makeAjaxStub({
+            search: () => [{ Id: 'r1' }, { Id: 'r2' }],
+            download: () => ({}),
+            deliver: (_e, subId) => subId === 'r1'
+        });
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
+        const I = subs._internals;
+        const progress = makeProgress();
+        const opts = { languages: ['eng'], skipExisting: false, topVariants: 2, maxRetries: 0, requestDelayMs: 0, verifyTimeoutMs: 20 };
+
+        const result = await I.runBatch(progress, [ep('e1', 1, 'A')], opts);
+
+        expect(result.counts.downloaded).toBe(1);
+        expect(stub.calls.filter(c => c.type === 'download').map(c => c.subtitleId)).toEqual(['r1', 'r2']);
+    });
+
     it('honors a languagesByEpisode override for one episode while others run every language', async () => {
         const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}) });
-        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax }));
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
         const I = subs._internals;
         const progress = makeProgress();
         const episodes = [ep('e1', 1, 'A'), ep('e2', 2, 'B')];
@@ -140,7 +198,7 @@ describe('multi-language batch runner', () => {
             },
             download: () => ({})
         });
-        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax }));
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
         const I = subs._internals;
         const progress = makeProgress();
         const episodes = [ep('e1', 1, 'A'), ep('e2', 2, 'B')];
@@ -171,7 +229,7 @@ describe('multi-language batch runner', () => {
                 return {};
             }
         });
-        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax }));
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
         const I = subs._internals;
         const episodes = [
             ep('e1', 1, 'A', [{ Type: 'Subtitle', Language: 'fra' }]),
@@ -192,7 +250,7 @@ describe('multi-language batch runner', () => {
     it('honors requestDelayMs between languages of the same episode', async () => {
         vi.useFakeTimers();
         const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}) });
-        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax }));
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
         const I = subs._internals;
         const progress = makeProgress();
         const episodes = [ep('e1', 1, 'A')];
@@ -217,7 +275,7 @@ describe('multi-language batch runner', () => {
 
     it('single-language runs produce the same counts as before, with [lang]-suffixed labels', async () => {
         const stub = makeAjaxStub({ search: () => [{ Id: 'r1' }], download: () => ({}) });
-        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax }));
+        const subs = loadSeasonSubs(makeApiClientStub({ ajax: stub.ajax, getItem: stub.getItem }));
         const I = subs._internals;
         const progress = makeProgress();
         const episodes = [ep('e1', 1, 'A'), ep('e2', 2, 'B')];
