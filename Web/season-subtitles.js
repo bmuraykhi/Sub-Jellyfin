@@ -367,6 +367,7 @@
 .ssd-results h4{margin:10px 0 4px;font-size:.75em;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
 .ssd-result{padding:2px 0}
 .ssd-result-reason{opacity:.6}
+.season-subs-btn.ssd-compact .detailButton-icon-text{display:none}
 .ssd-toast{position:fixed;right:20px;bottom:20px;z-index:99999;max-width:380px;padding:12px 16px;border-radius:10px;
   background:rgba(24,24,24,.96);color:#fff;border:1px solid rgba(255,255,255,.1);box-shadow:0 6px 24px rgba(0,0,0,.4);
   font-size:14px;line-height:1.4;animation:ssd-pop .18s ease-out}
@@ -1101,12 +1102,44 @@
         return null;
     }
 
+    function rightLimit(node) {
+        const viewport = document.documentElement.clientWidth || window.innerWidth;
+        const parent = node.parentElement;
+        if (!parent) return viewport;
+        const r = parent.getBoundingClientRect();
+        if (r.width <= 0) return viewport;
+        return Math.min(viewport, r.right - (parseFloat(getComputedStyle(parent).paddingRight) || 0));
+    }
+
+    function fitButton(button) {
+        const row = button && button.parentElement;
+        if (!row || !button.isConnected) return;
+        button.classList.remove('ssd-compact');
+        const limit = rightLimit(row);
+        let right = row.getBoundingClientRect().right;
+        Array.prototype.forEach.call(row.children, k => {
+            if (k.offsetParent !== null) right = Math.max(right, k.getBoundingClientRect().right);
+        });
+        const overflows = row.scrollWidth > row.clientWidth + 1 || (limit > 0 && right > limit + 1);
+        button.classList.toggle('ssd-compact', overflows);
+    }
+
+    function fitVisibleButton() {
+        const page = findVisibleDetailPage();
+        const button = page && page.querySelector('.season-subs-btn');
+        if (button) fitButton(button);
+    }
+
     function injectButton(visiblePage, ctx, itemId) {
         const existing = visiblePage.querySelector('.season-subs-btn');
         if (existing) {
-            if (existing.dataset.itemId === itemId) return true;
+            if (existing.dataset.itemId === itemId) {
+                fitButton(existing);
+                return true;
+            }
             existing.remove();
         }
+        ensureStyles();
 
         const buttonContainer = findButtonContainer(visiblePage);
         if (!buttonContainer) return false;
@@ -1202,6 +1235,7 @@
         } else {
             buttonContainer.appendChild(button);
         }
+        fitButton(button);
         return true;
     }
 
@@ -1243,6 +1277,7 @@
                 }
                 const existingBtn = visiblePage.querySelector('.season-subs-btn');
                 if (existingBtn && existingBtn.dataset.itemId === itemId) {
+                    fitButton(existingBtn);
                     dlog('already injected for', itemId);
                     return;
                 }
@@ -1311,6 +1346,7 @@
         obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
         setInterval(evaluateDetailsPage, 1000);
         window.addEventListener('hashchange', () => evaluateDetailsPage());
+        window.addEventListener('resize', debounce(fitVisibleButton, 150));
         evaluateDetailsPage();
         console.log(LOG, 'initialized');
     }
@@ -1350,7 +1386,7 @@
             STR, debounce, delay, escHtml, defaultLanguage, alreadyHasSubtitle,
             epLabel, distinctSeasonsCount, filterSelectedEpisodes, errStatus, isRetryable, describeErr,
             withRetry, processEpisode, runBatch, runRound, openOptionsDialog,
-            openProgressDialog, injectButton, findButtonContainer, ensureStyles,
+            openProgressDialog, injectButton, findButtonContainer, ensureStyles, fitButton,
             toast, themeColors, focusables, trapTab, loadCultures, mkLanguagePicker
         }
     };
