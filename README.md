@@ -27,7 +27,7 @@ https://www.iamparadox.dev/jellyfin/plugins/manifest.json
    https://raw.githubusercontent.com/bmuraykhi/jellyfin-plugins/main/manifest.json
    ```
 
-2. **Catalog** → **Season Subtitle Downloader** → **Install**
+2. Find **Season Subtitle Downloader** in the catalog (**Available** on Jellyfin 12) → **Install**
 3. Restart Jellyfin and hard-refresh the browser (Ctrl/Cmd+Shift+R).
 
 The old `https://raw.githubusercontent.com/bmuraykhi/Sub-Jellyfin/main/manifest.json` catalog is retired at 3.0.0.0.
@@ -35,20 +35,22 @@ If you added it, replace it with the one above.
 
 ## Use
 
-Open a season or series page and click **Download Subs**. Add your languages, untick any episodes you want to skip,
-and press **Start**. Failed episodes are listed with the reason, and **Retry Failed** runs just those again.
+Open a season or series page and click **Download Subs**. Search for your languages, untick any episodes you want to
+skip, and press **Start**. You can hide the dialog and keep browsing: the download carries on in a small card in the
+corner. Failed episodes are listed with the reason, and **Retry Failed** runs just those again.
 
 ## Settings
 
-Dashboard → Plugins → **Season Subtitle Downloader** sets what the dialog starts with:
+Dashboard → Plugins → **Season Subtitle Downloader** sets what the dialog starts with, and checks that File
+Transformation and a subtitle provider are installed:
 
 | Setting | Default | Notes |
 | --- | --- | --- |
-| Default language | your subtitle language, else English | |
-| Skip episodes that already have one | on | checked per language |
-| Retries per episode | 2 | only for network errors, 429 and 5xx |
-| Delay between episodes | 0 ms | raise it if your provider limits requests |
-| Variants per episode | 1 | download the 1–5 best matches |
+| Default languages | your subtitle language, else English | the dialog starts with all of them |
+| Skip episodes that already have subtitles | on | checked per language |
+| Matches per episode | 1 | download the 1–5 best matches |
+| Retries when a download fails | 2 | when the server or provider is busy or unreachable |
+| Pause between episodes | 0 s | raise it if your provider limits requests |
 
 ## How it works
 
@@ -56,15 +58,20 @@ Dashboard → Plugins → **Season Subtitle Downloader** sets what the dialog st
   changed, so it keeps working after web client updates.
 - The script adds the **Download Subs** button and makes the same calls as Jellyfin's own subtitle search, one episode
   at a time, through the subtitle providers you already have.
+- A download counts only once the new subtitle shows up on the episode: Jellyfin reports success even when the
+  provider fails.
 - Subtitles are saved wherever Jellyfin normally saves them. The plugin only stores its settings.
 - Everything goes through your Jellyfin server. The plugin has no accounts, API keys or outside connections of its
   own.
 
 ## Troubleshooting
 
-- **No Download Subs button:** Dashboard → Logs should show `Season Subtitle Downloader transformation registered.`
-  If it says `File Transformation plugin not found`, install that plugin and restart. Then hard-refresh the browser.
-- **Everything says "no match":** check your subtitle provider's login and quota.
+- **No Download Subs button:** the plugin's settings page says whether File Transformation is installed. Dashboard →
+  Logs should show `Season Subtitle Downloader transformation registered.` Then hard-refresh the browser.
+- **Everything says "no match":** the dialog warns if no subtitle provider is installed. Otherwise check the
+  provider's login.
+- **"The subtitle provider didn't deliver it":** usually the provider's login or daily download limit. Dashboard →
+  Logs shows `Error downloading subtitles` with the provider's reason.
 
 ## License
 

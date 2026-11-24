@@ -8,8 +8,40 @@ compares internally.
 
 ## [Unreleased]
 
+### Added
+
+- Hide the download dialog and keep browsing: the run carries on in a small card
+  in the corner, which opens it again. Going to another page hides a running
+  download instead of leaving its dialog over another show.
+- Several default languages in the plugin settings.
+- The settings page checks that File Transformation and a subtitle provider are
+  installed.
+- The dialog warns when no subtitle provider is installed, instead of every
+  episode coming back "No match".
+- When the Jellyfin server can't be reached, a run waits and carries on once
+  it's back, instead of failing every episode.
+- After 3 failed downloads in a row, a run pauses and asks whether to keep
+  going. The provider is often out of downloads for the day.
+- Failed and "No match" episodes link to their pages, to search for them by
+  hand.
+
 ### Changed
 
+- The 486-item language dropdown and its Add button are now a search box: type a
+  name, another name for it ("castilian") or a code, then pick with Enter or a
+  click. Before you type it suggests your recent and common languages.
+- Failures are explained in plain words instead of HTTP codes, and languages are
+  shown by name instead of ISO code.
+- **Retry Failed** keeps the first run's results, and its title says how many
+  downloads it retries.
+- With several languages, a note explains that counts are per episode and
+  language.
+- Esc and clicks outside the dialog hide a running download instead of
+  cancelling it.
+- Plainer settings: retries when a download fails, a pause between episodes in
+  seconds, and matches per episode.
+- The summary toast after a run is gone; the dialog or the corner card shows the
+  result.
 - The old catalog URL,
   `https://raw.githubusercontent.com/bmuraykhi/Sub-Jellyfin/main/manifest.json`,
   is retired and stops at 3.0.0.0. New versions are only published in the
@@ -19,6 +51,19 @@ compares internally.
   commit messages for the older ones.
 - New plugin logo with the plugin's name. It fills the wide plugin tile instead
   of being zoomed and cropped.
+
+### Fixed
+
+- Downloads the subtitle provider failed on, for example after reaching its
+  daily limit, were counted as downloaded, because Jellyfin answers the same
+  either way. A download now counts once the subtitle shows up on the episode;
+  otherwise it's listed as failed and can be retried.
+- In the desktop layout on a narrow window, the button's label pushed
+  Jellyfin's ⋮ menu off screen. The label now hides when the row doesn't fit.
+- A finished dialog stayed open over another show after going back.
+- The log warned "No </body> tag found" on every page load. File Transformation
+  also hands some of jellyfin-web's script files to the plugin; those are now
+  left alone.
 
 ## [3.0.0.0] – 2026-11-01
 

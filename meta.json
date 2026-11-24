@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "description": "Adds a 'Download Subs' button to season and series pages that batch-downloads subtitles for every episode, in one or more languages.",
+  "description": "Adds a 'Download Subs' button to season and series pages that batch-downloads subtitles for every episode, in one or more languages. Requires the File Transformation plugin.",
   "guid": "a3c0e5c3-7d0d-4b91-9d1c-2e6f9b3a1c5d",
   "imagePath": "icon.png",
   "name": "Season Subtitle Downloader",
