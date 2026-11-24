@@ -64,16 +64,16 @@ describe('episode picker', () => {
         openWithEpisodes(I, episodes, { cultures });
         expect(coverageEl().textContent).toContain('2 of 3');
 
-        const select = document.getElementById('season-subs-lang');
-        select.value = 'fra';
-        select.dispatchEvent(new Event('change'));
-        findByText('button', I.STR.dlgAddLanguage).click();
+        const input = document.getElementById('season-subs-lang');
+        input.value = 'french';
+        input.dispatchEvent(new Event('input'));
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
 
         const lines = Array.from(document.querySelectorAll('div'))
             .filter(n => /already (has|have) .+ subtitles$/.test(n.textContent))
             .map(n => n.textContent);
-        expect(lines.some(t => t.includes('2 of 3') && t.includes('eng'))).toBe(true);
-        expect(lines.some(t => t.includes('1 of 3') && t.includes('fra'))).toBe(true);
+        expect(lines.some(t => t.includes('2 of 3') && t.includes('English'))).toBe(true);
+        expect(lines.some(t => t.includes('1 of 3') && t.includes('French'))).toBe(true);
     });
 
     it('renders one checked checkbox per episode and labels the toggle with the selected count', () => {

@@ -22,7 +22,7 @@ describe('dialogs', () => {
     });
 
     describe('openOptionsDialog', () => {
-        it('appends an overlay with the language input seeded from defaultLang', () => {
+        it('starts with defaultLang added and an empty field for more', () => {
             const subs = loadSeasonSubs();
             const I = subs._internals;
             I.openOptionsDialog({
@@ -31,7 +31,8 @@ describe('dialogs', () => {
             });
             const langInput = document.getElementById('season-subs-lang');
             expect(document.body.contains(langInput)).toBe(true);
-            expect(langInput.value).toBe('eng');
+            expect(langInput.value).toBe('');
+            expect(document.querySelector(`[aria-label="${I.STR.dlgRemoveLanguage('eng')}"]`)).toBeTruthy();
         });
 
         it('shows the error on an invalid language when adding, and adds once corrected', async () => {

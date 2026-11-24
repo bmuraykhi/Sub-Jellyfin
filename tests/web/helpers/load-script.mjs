@@ -17,10 +17,23 @@ export function makeApiClientStub(overrides = {}) {
     };
 }
 
+function memoryStorage() {
+    const m = new Map();
+    return {
+        getItem: k => (m.has(k) ? m.get(k) : null),
+        setItem: (k, v) => { m.set(k, String(v)); },
+        removeItem: k => { m.delete(k); },
+        clear: () => { m.clear(); }
+    };
+}
+
 export function loadSeasonSubs(apiClient = makeApiClientStub()) {
     delete window.__seasonSubsLoaded;
     delete window.__seasonSubs;
     vi.stubGlobal('ApiClient', apiClient);
+    if (!globalThis.localStorage || typeof globalThis.localStorage.getItem !== 'function') {
+        vi.stubGlobal('localStorage', memoryStorage());
+    }
     (0, eval)(source);
     return window.__seasonSubs;
 }
