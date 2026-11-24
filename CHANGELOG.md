@@ -8,6 +8,8 @@ compares internally.
 
 ## [Unreleased]
 
+## [3.1.0.0] – 2026-11-24
+
 ### Added
 
 - Hide the download dialog and keep browsing: the run carries on in a small card
@@ -64,6 +66,8 @@ compares internally.
 - The log warned "No </body> tag found" on every page load. File Transformation
   also hands some of jellyfin-web's script files to the plugin; those are now
   left alone.
+- With the dialog at full height, content scrolled right up against the header.
+  A line now separates them while the content is scrolled.
 
 ## [3.0.0.0] – 2026-11-01
 
